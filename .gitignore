@@ -1,0 +1,16 @@
+# Настройки с секретами — только .env.example под git
+.env
+*.env
+!.env.example
+
+# Сборка
+/dist/
+frontend/dist/
+node_modules/
+*.exe
+
+# Редакторы и система
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
