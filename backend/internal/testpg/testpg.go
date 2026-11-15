@@ -26,6 +26,9 @@ func Run(port uint32, tests func(pool *pgxpool.Pool) int) int {
 	cache, _ := os.UserCacheDir()
 	pg := embeddedpostgres.NewDatabase(embeddedpostgres.DefaultConfig().
 		Version(embeddedpostgres.V17).
+		// UTF-8 явно: на русской Windows initdb иначе берёт WIN1251, и узбекская кириллица не сохранится.
+		Encoding("UTF8").
+		Locale("C").
 		Port(port).
 		Database("ayzonexam").
 		CachePath(filepath.Join(cache, "ayzonexam-embedded-pg")).

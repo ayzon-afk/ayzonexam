@@ -124,9 +124,10 @@ func TestFirstLoginCreatesUser(t *testing.T) {
 func TestTelegramProfileRefreshed(t *testing.T) {
 	h := newHandler(t, Deps{})
 	do(t, h, "GET", "/api/me", initData(9002, ""), "")
-	user := `{"id":9002,"first_name":"Vali","username":"new_name"}`
+	// Узбекская кириллица и эмодзи: база обязана быть в UTF-8.
+	user := `{"id":9002,"first_name":"Ўктам Ғайрат Қҳ 🙂","username":"new_name"}`
 	r := do(t, h, "GET", "/api/me", tgauth.Sign(url.Values{"user": {user}, "auth_date": {strconv.FormatInt(now.Unix(), 10)}}, fakeBot), "")
-	if r.body["first_name"] != "Vali" {
+	if r.body["first_name"] != "Ўктам Ғайрат Қҳ 🙂" {
 		t.Fatalf("имя из Telegram не обновилось: %s", r.raw)
 	}
 	var username string

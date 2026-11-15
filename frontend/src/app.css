@@ -1,0 +1,111 @@
+/* Цвета — из темы Telegram (переменные --tg-theme-* ставит telegram-web-app.js);
+   запасные значения — для обычного браузера при разработке. Фирменный стиль — отдельной задачей (SPEC). */
+:root {
+  --bg: var(--tg-theme-bg-color, #ffffff);
+  --text: var(--tg-theme-text-color, #111418);
+  --hint: var(--tg-theme-hint-color, #8a9099);
+  --link: var(--tg-theme-link-color, #2481cc);
+  --accent: var(--tg-theme-button-color, #2481cc);
+  --accent-text: var(--tg-theme-button-text-color, #ffffff);
+  --surface: var(--tg-theme-secondary-bg-color, #f1f2f5);
+  --section: var(--tg-theme-section-bg-color, #ffffff);
+  --separator: var(--tg-theme-section-separator-color, #e3e5e8);
+  --danger: var(--tg-theme-destructive-text-color, #e53935);
+
+  /* Полноэкранный режим Telegram: системные вырезы плюс его собственная шапка. */
+  --safe-top: calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px));
+  --safe-bottom: max(var(--tg-safe-area-inset-bottom, 0px), env(safe-area-inset-bottom, 0px));
+
+  --radius: 14px;
+  --tabbar-h: 58px;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: var(--tg-theme-bg-color, #17191c);
+    --text: var(--tg-theme-text-color, #f2f3f5);
+    --hint: var(--tg-theme-hint-color, #8d939b);
+    --surface: var(--tg-theme-secondary-bg-color, #0f1012);
+    --section: var(--tg-theme-section-bg-color, #1f2226);
+    --separator: var(--tg-theme-section-separator-color, #2c3035);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--text);
+  font: 16px/1.4 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+.btn {
+  display: block;
+  width: 100%;
+  min-height: 50px;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn-plain {
+  background: var(--section);
+  color: var(--link);
+}
+
+.card {
+  background: var(--section);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.hint {
+  color: var(--hint);
+  font-size: 14px;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 14px;
+}
+
+input[type='date'] {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 14px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius);
+  background: var(--section);
+  color: var(--text);
+  font: inherit;
+}
