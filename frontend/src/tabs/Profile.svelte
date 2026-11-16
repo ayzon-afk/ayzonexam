@@ -1,8 +1,12 @@
 <script lang="ts">
   import BandPicker from '../components/BandPicker.svelte'
+  import Chart from '../components/Chart.svelte'
+  import Demo from '../components/Demo.svelte'
   import { api, ApiError, type Me } from '../lib/api'
-  import { examDateRange } from '../lib/exam'
+  import { badges, centerById, mine, MY_CENTER } from '../lib/demo'
+  import { examDateRange, formatBand } from '../lib/exam'
   import { LANGS, setLang, t, type Lang } from '../lib/i18n/index.svelte'
+  import { go } from '../lib/nav.svelte'
   import { haptic } from '../lib/telegram'
 
   let { me, onchange }: { me: Me; onchange: (me: Me) => void } = $props()
@@ -59,6 +63,55 @@
     <p class="hint">@{me.nickname}</p>
   </div>
 </div>
+
+<section class="card">
+  <div class="stats">
+    <div>
+      <p class="hint">{t('profile.current')} <Demo /></p>
+      <p class="num big">{formatBand(mine.band)}</p>
+    </div>
+    <div>
+      <p class="hint">{t('home.goal')}</p>
+      <p class="num big">{me.goal_band === null ? '—' : formatBand(me.goal_band)}</p>
+    </div>
+  </div>
+  <Chart points={mine.progress} />
+</section>
+
+<section class="card">
+  <h2>{t('profile.badges')} <Demo /></h2>
+  <ul class="badges">
+    {#each badges as b (b.title)}
+      <li class:off={!b.got}>
+        <span class="medal" aria-hidden="true">★</span>
+        <span>{t(b.title)}</span>
+      </li>
+    {/each}
+  </ul>
+</section>
+
+<ul class="card rows">
+  <li>
+    <button class="row" onclick={() => go({ s: 'center', id: MY_CENTER })}>
+      <span class="grow">{t('profile.center')} <Demo /></span>
+      <span class="hint">{centerById(MY_CENTER).name}</span>
+      <span class="chev" aria-hidden="true">›</span>
+    </button>
+  </li>
+  <li>
+    <button class="row" onclick={() => go({ s: 'premium' })}>
+      <span class="grow">Premium <Demo /></span>
+      <span class="chev" aria-hidden="true">›</span>
+    </button>
+  </li>
+  <li>
+    <button class="row" onclick={() => go({ s: 'premium' })}>
+      <span class="grow">{t('profile.friends')} <Demo /></span>
+      <span class="hint">{t('premium.invited', { n: mine.invited })}</span>
+      <span class="chev" aria-hidden="true">›</span>
+    </button>
+  </li>
+</ul>
 
 <section class="card">
   <h2>{t('profile.goal')}</h2>
@@ -148,5 +201,54 @@
 
   .center {
     text-align: center;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .big {
+    font-size: 32px;
+    line-height: 1.1;
+  }
+
+  .badges {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px 8px;
+  }
+
+  .badges li {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    text-align: center;
+    font-size: 12px;
+  }
+
+  .medal {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f7c948, #e08e0b);
+    color: #fff;
+    font-size: 22px;
+  }
+
+  .badges .off {
+    color: var(--hint);
+  }
+
+  .badges .off .medal {
+    background: var(--surface);
+    color: var(--hint);
   }
 </style>

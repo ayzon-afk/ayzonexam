@@ -2,7 +2,8 @@
   import { onMount } from 'svelte'
   import { api, ApiError, initAuth, type Me } from './lib/api'
   import { initTelegram, telegramLanguage } from './lib/telegram'
-  import { langFromTelegram, setLang, t } from './lib/i18n/index.svelte'
+  import { langFromTelegram, ready, setLang, t } from './lib/i18n/index.svelte'
+  import { go, nav } from './lib/nav.svelte'
   import Onboarding from './screens/Onboarding.svelte'
   import Shell from './screens/Shell.svelte'
 
@@ -10,6 +11,7 @@
 
   let status = $state<Status>('loading')
   let me = $state<Me | null>(null)
+  let noDict = $state(false)
 
   // Кнопка бота «Открыть разбор» открывает приложение с ?check=<id>.
   const checkParam = Number(new URLSearchParams(location.search).get('check'))
@@ -24,6 +26,10 @@
       }
       me = await api.me()
       setLang(me.lang)
+      if (openCheck) {
+        nav.tab = 'exams'
+        nav.stack = [{ s: 'writingCheck', id: openCheck }]
+      }
       status = 'ready'
     } catch (e) {
       status = e instanceof ApiError && e.code === 'expired' ? 'expired' : 'error'
@@ -35,18 +41,29 @@
     setLang(next.lang)
   }
 
+  // Конец онбординга: третий экран предлагает тест уровня — он открывается поверх главной.
+  function onboarded(next: Me, levelTest: boolean) {
+    update(next)
+    if (levelTest) go({ s: 'practice', part: 'level' })
+  }
+
   onMount(() => {
     initTelegram()
-    setLang(langFromTelegram(telegramLanguage()))
+    setLang(langFromTelegram(telegramLanguage())).catch(() => (noDict = true))
     load()
   })
 </script>
 
-{#if status === 'ready' && me}
+{#if !ready()}
+  <!-- Словарь ещё грузится. Не загрузился — текстов нет совсем, поэтому только знак «повторить». -->
+  {#if noDict}
+    <main class="center"><button class="btn" aria-label="Retry" onclick={() => location.reload()}>↻</button></main>
+  {/if}
+{:else if status === 'ready' && me}
   {#if me.onboarded}
-    <Shell {me} onchange={update} {openCheck} />
+    <Shell {me} onchange={update} />
   {:else}
-    <Onboarding ondone={update} />
+    <Onboarding ondone={onboarded} />
   {/if}
 {:else}
   <main class="center">

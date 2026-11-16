@@ -1,11 +1,21 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import Demo from '../components/Demo.svelte'
   import { api, type History } from '../lib/api'
   import { formatBand } from '../lib/exam'
-  import { getLang, t } from '../lib/i18n/index.svelte'
+  import { getLang, t, type Key } from '../lib/i18n/index.svelte'
+  import { go, type Route } from '../lib/nav.svelte'
   import { loadDraft } from '../lib/writing'
 
-  let { onnew, onopen }: { onnew: () => void; onopen: (id: number) => void } = $props()
+  const onnew = () => go({ s: 'writingNew' })
+  const onopen = (id: number) => go({ s: 'writingCheck', id })
+
+  // Практика по частям — демо-экраны этапа 12; Writing ниже — настоящий.
+  const parts: { name: string; hint: Key; r: Route }[] = [
+    { name: 'Reading', hint: 'quick.reading', r: { s: 'practice', part: 'reading' } },
+    { name: 'Listening', hint: 'quick.listening', r: { s: 'practice', part: 'listening' } },
+    { name: 'Speaking', hint: 'quick.speaking', r: { s: 'speaking' } },
+  ]
 
   let history = $state<History | null>(null)
   let failed = $state(false)
@@ -30,6 +40,30 @@
 </script>
 
 <h1>{t('tab.exams')}</h1>
+
+<button class="card level" onclick={() => go({ s: 'practice', part: 'level' })}>
+  <span class="grow">
+    <strong>{t('level.title')} <Demo /></strong>
+    <span class="tag">{t('level.lead')}</span>
+  </span>
+  <span class="chev" aria-hidden="true">›</span>
+</button>
+
+<section class="card mock">
+  <h2>{t('mock.title')} <Demo /></h2>
+  <p class="hint">{t('mock.lead')}</p>
+  <button class="btn" onclick={() => go({ s: 'mock' })}>{t('mock.open')}</button>
+</section>
+
+<div class="sect"><h2>{t('exams.parts')} <Demo /></h2></div>
+<div class="parts">
+  {#each parts as p (p.name)}
+    <button class="card part" onclick={() => go(p.r)}>
+      <strong>{p.name}</strong>
+      <span class="tag">{t(p.hint)}</span>
+    </button>
+  {/each}
+</div>
 
 <section class="card writing">
   <h2>Writing</h2>
@@ -74,7 +108,10 @@
   {/if}
 {/if}
 
-<p class="hint next">{t('exams.next')}</p>
+<button class="card row history" onclick={() => go({ s: 'history' })}>
+  <span class="grow">{t('history.title')} <Demo /></span>
+  <span class="chev" aria-hidden="true">›</span>
+</button>
 
 <style>
   h1 {
@@ -147,8 +184,38 @@
     white-space: nowrap;
   }
 
-  .next {
-    text-align: center;
-    margin-top: 8px;
+  .level {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+  }
+
+  .level strong {
+    display: block;
+  }
+
+  .mock {
+    display: grid;
+    gap: 10px;
+  }
+
+  .parts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .part {
+    display: grid;
+    gap: 2px;
+    align-content: start;
+    padding: 14px 12px;
+    text-align: left;
+  }
+
+  .history {
+    padding: 0 16px;
+    margin-top: 4px;
   }
 </style>

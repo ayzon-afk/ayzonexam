@@ -5,26 +5,27 @@
   import { t } from '../lib/i18n/index.svelte'
   import { haptic } from '../lib/telegram'
 
-  // Третий экран — тест уровня — добавится в этапе 3 (ROADMAP).
-  const TOTAL = 2
+  // Третий экран предлагает тест уровня; сам тест пока демо (этап 12), настоящий — в этапе 3.
+  const TOTAL = 3
 
-  let { ondone }: { ondone: (me: Me) => void } = $props()
+  let { ondone }: { ondone: (me: Me, levelTest: boolean) => void } = $props()
 
   let step = $state(1)
   let goal = $state<number | null>(null)
   let examDate = $state('')
+  let unknownDate = $state(false)
   let saving = $state(false)
   let error = $state('')
 
   const range = examDateRange(new Date())
 
-  async function finish(date: string | null) {
+  async function finish(levelTest: boolean) {
     saving = true
     error = ''
     try {
-      const me = await api.updateMe({ goal_band: goal, exam_date: date, onboarded: true })
+      const me = await api.updateMe({ goal_band: goal, exam_date: unknownDate ? null : examDate, onboarded: true })
       haptic.success()
-      ondone(me)
+      ondone(me, levelTest)
     } catch (e) {
       haptic.error()
       error = e instanceof ApiError && e.code === 'bad_exam_date' ? t('error.date') : t('app.error')
@@ -51,16 +52,25 @@
     <footer>
       <button class="btn" disabled={goal === null} onclick={() => (step = 2)}>{t('onb.next')}</button>
     </footer>
-  {:else}
+  {:else if step === 2}
     <section>
       <h1>{t('onb.date.title')}</h1>
       <p class="hint">{t('onb.date.hint')}</p>
       <input type="date" min={range.min} max={range.max} bind:value={examDate} />
+    </section>
+    <footer>
+      <button class="btn" disabled={!examDate} onclick={() => ((unknownDate = false), (step = 3))}>{t('onb.next')}</button>
+      <button class="btn btn-plain" onclick={() => ((unknownDate = true), (step = 3))}>{t('onb.date.unknown')}</button>
+    </footer>
+  {:else}
+    <section>
+      <h1>{t('onb.level.title')}</h1>
+      <p class="hint">{t('onb.level.hint')}</p>
       {#if error}<p class="error">{error}</p>{/if}
     </section>
     <footer>
-      <button class="btn" disabled={saving || !examDate} onclick={() => finish(examDate)}>{t('onb.start')}</button>
-      <button class="btn btn-plain" disabled={saving} onclick={() => finish(null)}>{t('onb.date.unknown')}</button>
+      <button class="btn" disabled={saving} onclick={() => finish(true)}>{t('onb.level.start')}</button>
+      <button class="btn btn-plain" disabled={saving} onclick={() => finish(false)}>{t('onb.level.later')}</button>
     </footer>
   {/if}
 </main>

@@ -1,12 +1,10 @@
-<script lang="ts" module>
-  export type Tab = 'home' | 'exams' | 'rating' | 'community' | 'profile'
-</script>
-
 <script lang="ts">
   import { t, type Key } from '../lib/i18n/index.svelte'
+  import { nav, openTab, type Tab } from '../lib/nav.svelte'
   import { haptic } from '../lib/telegram'
 
-  let { active = $bindable() }: { active: Tab } = $props()
+  // sub — открыт экран поверх вкладок: на телефоне панель прячется, на ноутбуке остаётся слева.
+  let { sub }: { sub: boolean } = $props()
 
   // Иконки — контуры 24×24, рисуются линией цвета текста.
   const tabs: { id: Tab; label: Key; path: string }[] = [
@@ -18,14 +16,15 @@
   ]
 </script>
 
-<nav>
+<nav class:sub>
+  <p class="brand">AYZON EXAM</p>
   {#each tabs as tab (tab.id)}
     <button
-      class:on={active === tab.id}
-      aria-current={active === tab.id ? 'page' : undefined}
+      class:on={nav.tab === tab.id}
+      aria-current={nav.tab === tab.id ? 'page' : undefined}
       onclick={() => {
-        if (active !== tab.id) haptic.select()
-        active = tab.id
+        if (nav.tab !== tab.id) haptic.select()
+        openTab(tab.id)
       }}
     >
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d={tab.path} /></svg>
@@ -46,6 +45,10 @@
     border-top: 1px solid var(--separator);
   }
 
+  .brand {
+    display: none;
+  }
+
   button {
     display: flex;
     flex-direction: column;
@@ -63,6 +66,7 @@
   svg {
     width: 24px;
     height: 24px;
+    flex: none;
     fill: none;
     stroke: currentColor;
     stroke-width: 1.8;
@@ -77,5 +81,50 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  @media (max-width: 899px) {
+    .sub {
+      display: none;
+    }
+  }
+
+  @media (min-width: 900px) {
+    nav {
+      inset: 0 auto 0 0;
+      width: var(--side-w);
+      height: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 24px 12px;
+      border-top: 0;
+      border-right: 1px solid var(--separator);
+    }
+
+    .brand {
+      display: block;
+      padding: 0 12px 16px;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+
+    button {
+      flex-direction: row;
+      justify-content: flex-start;
+      gap: 12px;
+      min-height: 44px;
+      padding: 0 12px;
+      border-radius: 10px;
+    }
+
+    .on {
+      background: var(--surface);
+    }
+
+    span {
+      font-size: 15px;
+    }
   }
 </style>
