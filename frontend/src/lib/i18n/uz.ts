@@ -94,6 +94,18 @@ export const uz = {
 
   'error.date': 'Sana o‘tib ketgan yoki juda uzoq.',
 
+  'profile.theme': 'Ko‘rinish',
+  'theme.telegram': 'Telegramdagidek',
+  'theme.system': 'Tizimdagidek',
+  'theme.light': 'Yorug‘',
+  'theme.dark': 'Qorong‘i',
+  'logout.title': 'Chiqish',
+  'logout.close': 'Ilovani yopish',
+  'logout.confirm': 'Chiqasizmi? Bu brauzerdagi insho qoralamasi o‘chiriladi.',
+  'logout.cancel': 'Bekor qilish',
+  'logout.done': 'Siz hisobdan chiqdingiz.',
+  'logout.again': 'Qayta kirish',
+
   // Этап 12 — полный интерфейс; demo.* уходят вместе с демо-данными (lib/demo.ts).
   'demo.badge': 'demo',
   'demo.later': 'Bu demo: keyingi bosqichlarda ishlaydi.',

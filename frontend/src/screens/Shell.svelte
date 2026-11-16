@@ -12,7 +12,7 @@
   import { t } from '../lib/i18n/index.svelte'
   import { back, current, nav, replace } from '../lib/nav.svelte'
 
-  let { me, onchange }: { me: Me; onchange: (me: Me) => void } = $props()
+  let { me, onchange, onlogout }: { me: Me; onchange: (me: Me) => void; onlogout: () => void } = $props()
 
   type Lazy = () => Promise<{ default: Component<any> }>
 
@@ -49,7 +49,7 @@
       {:else if nav.tab === 'community'}
         <Community />
       {:else}
-        <Profile {me} {onchange} />
+        <Profile {me} {onchange} {onlogout} />
       {/if}
     {:else if top.s === 'writingNew'}
       <WritingNew onback={back} oncreated={(id) => replace({ s: 'writingCheck', id })} />

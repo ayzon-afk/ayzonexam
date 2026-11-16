@@ -95,6 +95,18 @@ export const ru: Record<Key, string> = {
 
   'error.date': 'Дата в прошлом или слишком далеко.',
 
+  'profile.theme': 'Оформление',
+  'theme.telegram': 'Как в Telegram',
+  'theme.system': 'Как в системе',
+  'theme.light': 'Светлая',
+  'theme.dark': 'Тёмная',
+  'logout.title': 'Выйти',
+  'logout.close': 'Закрыть приложение',
+  'logout.confirm': 'Выйти? Черновик эссе в этом браузере удалится.',
+  'logout.cancel': 'Отмена',
+  'logout.done': 'Вы вышли из аккаунта.',
+  'logout.again': 'Войти снова',
+
   // Этап 12 — полный интерфейс; demo.* уходят вместе с демо-данными (lib/demo.ts).
   'demo.badge': 'демо',
   'demo.later': 'Это демо: заработает в следующих этапах.',

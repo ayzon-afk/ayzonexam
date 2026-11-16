@@ -24,7 +24,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --bg: var(--tg-theme-bg-color, #17191c);
     --text: var(--tg-theme-text-color, #f2f3f5);
     --hint: var(--tg-theme-hint-color, #8d939b);
@@ -32,6 +32,35 @@
     --section: var(--tg-theme-section-bg-color, #1f2226);
     --separator: var(--tg-theme-section-separator-color, #2c3035);
   }
+}
+
+/* Своя тема из профиля (lib/theme.ts): цвета задаются напрямую, тема Telegram и системы не влияет. */
+:root[data-theme='light'] {
+  --bg: #ffffff;
+  --text: #111418;
+  --hint: #8a9099;
+  --link: #2481cc;
+  --accent: #2481cc;
+  --accent-text: #ffffff;
+  --surface: #f1f2f5;
+  --section: #ffffff;
+  --separator: #e3e5e8;
+  --danger: #e53935;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #17191c;
+  --text: #f2f3f5;
+  --hint: #8d939b;
+  --link: #5aa9f0;
+  --accent: #3b8fe0;
+  --accent-text: #ffffff;
+  --surface: #0f1012;
+  --section: #1f2226;
+  --separator: #2c3035;
+  --danger: #ff5c5c;
+  color-scheme: dark;
 }
 
 * {

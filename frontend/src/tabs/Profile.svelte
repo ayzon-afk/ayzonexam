@@ -5,11 +5,29 @@
   import { api, ApiError, type Me } from '../lib/api'
   import { badges, centerById, mine, MY_CENTER } from '../lib/demo'
   import { examDateRange, formatBand } from '../lib/exam'
-  import { LANGS, setLang, t, type Lang } from '../lib/i18n/index.svelte'
+  import { LANGS, setLang, t, type Key, type Lang } from '../lib/i18n/index.svelte'
   import { go } from '../lib/nav.svelte'
-  import { haptic } from '../lib/telegram'
+  import { closeApp, haptic, inTelegram } from '../lib/telegram'
+  import { applyTheme, loadTheme, type Theme } from '../lib/theme'
 
-  let { me, onchange }: { me: Me; onchange: (me: Me) => void } = $props()
+  let { me, onchange, onlogout }: { me: Me; onchange: (me: Me) => void; onlogout: () => void } = $props()
+
+  const telegram = inTelegram()
+  let theme = $state<Theme>(loadTheme())
+  const themes: { id: Theme; label: Key }[] = [
+    { id: 'auto', label: telegram ? 'theme.telegram' : 'theme.system' },
+    { id: 'light', label: 'theme.light' },
+    { id: 'dark', label: 'theme.dark' },
+  ]
+
+  function pickTheme(next: Theme) {
+    haptic.select()
+    theme = next
+    applyTheme(next)
+  }
+
+  // Выход: в Telegram — закрыть приложение (аккаунт и есть Telegram), на сайте — спросить и выйти.
+  let confirmOut = $state(false)
 
   // Черновик правок: заполняется из профиля один раз при открытии вкладки.
   // svelte-ignore state_referenced_locally
@@ -140,6 +158,29 @@
   </div>
 </section>
 
+<section class="card">
+  <h2>{t('profile.theme')}</h2>
+  <div class="langs" role="radiogroup">
+    {#each themes as th (th.id)}
+      <button role="radio" aria-checked={theme === th.id} class:on={theme === th.id} onclick={() => pickTheme(th.id)}>{t(th.label)}</button>
+    {/each}
+  </div>
+</section>
+
+{#if telegram}
+  <button class="btn btn-plain out" onclick={closeApp}>{t('logout.close')}</button>
+{:else if confirmOut}
+  <section class="card">
+    <p>{t('logout.confirm')}</p>
+    <div class="langs two">
+      <button onclick={() => (confirmOut = false)}>{t('logout.cancel')}</button>
+      <button class="danger" onclick={onlogout}>{t('logout.title')}</button>
+    </div>
+  </section>
+{:else}
+  <button class="btn btn-plain out" onclick={() => (confirmOut = true)}>{t('logout.title')}</button>
+{/if}
+
 <p class="hint center">{t('profile.disclaimer')}</p>
 
 <style>
@@ -192,6 +233,20 @@
     background: var(--surface);
     font-size: 14px;
     font-weight: 500;
+  }
+
+  .langs.two {
+    grid-template-columns: 1fr 1fr;
+    margin-top: 12px;
+  }
+
+  .langs .danger {
+    background: var(--danger);
+    color: #fff;
+  }
+
+  .out {
+    color: var(--danger);
   }
 
   .langs .on {

@@ -95,6 +95,18 @@ export const en: Record<Key, string> = {
 
   'error.date': 'The date is in the past or too far ahead.',
 
+  'profile.theme': 'Appearance',
+  'theme.telegram': 'Like Telegram',
+  'theme.system': 'System',
+  'theme.light': 'Light',
+  'theme.dark': 'Dark',
+  'logout.title': 'Log out',
+  'logout.close': 'Close the app',
+  'logout.confirm': 'Log out? The essay draft in this browser will be deleted.',
+  'logout.cancel': 'Cancel',
+  'logout.done': 'You have logged out.',
+  'logout.again': 'Log in again',
+
   // Этап 12 — полный интерфейс; demo.* уходят вместе с демо-данными (lib/demo.ts).
   'demo.badge': 'demo',
   'demo.later': 'This is a demo: it will work in later stages.',

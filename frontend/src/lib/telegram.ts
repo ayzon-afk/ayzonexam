@@ -12,6 +12,10 @@ interface WebApp {
   expand(): void
   isVersionAtLeast(version: string): boolean
   disableVerticalSwipes?(): void
+  close(): void
+  setHeaderColor?(color: string): void
+  setBackgroundColor?(color: string): void
+  setBottomBarColor?(color: string): void
   BackButton?: {
     show(): void
     hide(): void
@@ -43,6 +47,24 @@ export function initTelegram() {
 
 export function initData(): string {
   return tg?.initData ?? ''
+}
+
+// Приложение открыто внутри Telegram: только там есть подписанный initData.
+export function inTelegram(): boolean {
+  return !!tg?.initData
+}
+
+// Закрыть Mini App — в Telegram «выйти» значит это: аккаунт и есть Telegram.
+export function closeApp() {
+  tg?.close()
+}
+
+// Шапка, фон и нижняя полоса Telegram под цвет своей темы; null — вернуть цвета Telegram.
+export function setChrome(color: string | null) {
+  if (!tg || !tg.isVersionAtLeast('6.9')) return
+  tg.setHeaderColor?.(color ?? 'bg_color')
+  tg.setBackgroundColor?.(color ?? 'bg_color')
+  if (tg.isVersionAtLeast('7.10')) tg.setBottomBarColor?.(color ?? 'bottom_bar_bg_color')
 }
 
 export function telegramLanguage(): string | undefined {

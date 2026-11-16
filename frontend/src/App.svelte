@@ -7,7 +7,7 @@
   import Onboarding from './screens/Onboarding.svelte'
   import Shell from './screens/Shell.svelte'
 
-  type Status = 'loading' | 'outside' | 'expired' | 'error' | 'ready'
+  type Status = 'loading' | 'outside' | 'expired' | 'error' | 'ready' | 'out'
 
   let status = $state<Status>('loading')
   let me = $state<Me | null>(null)
@@ -41,6 +41,20 @@
     setLang(next.lang)
   }
 
+  // Выход на сайте: стираются черновик и прочее личное этого браузера, тема устройства остаётся.
+  // Вход вне Telegram появится в этапе 13; до него «Войти снова» — это просто повторный вход.
+  function logout() {
+    try {
+      for (const k of Object.keys(localStorage)) if (k.startsWith('ayzon.') && k !== 'ayzon.theme') localStorage.removeItem(k)
+    } catch {
+      // хранилище недоступно — стирать нечего
+    }
+    me = null
+    nav.stack = []
+    nav.tab = 'home'
+    status = 'out'
+  }
+
   // Конец онбординга: третий экран предлагает тест уровня — он открывается поверх главной.
   function onboarded(next: Me, levelTest: boolean) {
     update(next)
@@ -61,7 +75,7 @@
   {/if}
 {:else if status === 'ready' && me}
   {#if me.onboarded}
-    <Shell {me} onchange={update} />
+    <Shell {me} onchange={update} onlogout={logout} />
   {:else}
     <Onboarding ondone={onboarded} />
   {/if}
@@ -71,6 +85,10 @@
       <p class="hint">{t('app.loading')}</p>
     {:else if status === 'outside'}
       <p>{t('app.outside')}</p>
+    {:else if status === 'out'}
+      <p class="brand">AYZON EXAM</p>
+      <p>{t('logout.done')}</p>
+      <button class="btn" onclick={load}>{t('logout.again')}</button>
     {:else if status === 'expired'}
       <p>{t('app.expired')}</p>
     {:else}
@@ -81,6 +99,11 @@
 {/if}
 
 <style>
+  .brand {
+    font-size: 22px;
+    font-weight: 800;
+  }
+
   .center {
     min-height: 100vh;
     display: grid;
