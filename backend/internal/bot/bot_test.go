@@ -126,3 +126,24 @@ func TestSetupModes(t *testing.T) {
 		t.Fatalf("webhook без секрета: %v", (*calls)[3].body)
 	}
 }
+
+func TestWritingChecked(t *testing.T) {
+	b, calls := fakeTelegram(t)
+	band := 6.5
+	if err := b.WritingChecked(context.Background(), 42, "ru", 17, &band); err != nil {
+		t.Fatal(err)
+	}
+	body := (*calls)[0].body
+	raw, _ := json.Marshal(body["reply_markup"])
+	if body["chat_id"] != float64(42) || !strings.Contains(body["text"].(string), "6.5") ||
+		!strings.Contains(string(raw), `"url":"https://exam.example/app?check=17"`) {
+		t.Fatalf("сообщение о проверке: %v %s", body, raw)
+	}
+
+	if err := b.WritingChecked(context.Background(), 42, "uz", 18, nil); err != nil {
+		t.Fatal(err)
+	}
+	if text := (*calls)[1].body["text"].(string); !strings.Contains(text, "limitga kirmaydi") {
+		t.Fatalf("неудача на узбекском: %q", text)
+	}
+}

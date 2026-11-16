@@ -12,6 +12,12 @@ interface WebApp {
   expand(): void
   isVersionAtLeast(version: string): boolean
   disableVerticalSwipes?(): void
+  BackButton?: {
+    show(): void
+    hide(): void
+    onClick(cb: () => void): void
+    offClick(cb: () => void): void
+  }
   HapticFeedback?: {
     impactOccurred(style: HapticStyle): void
     notificationOccurred(type: 'error' | 'success' | 'warning'): void
@@ -41,6 +47,23 @@ export function initData(): string {
 
 export function telegramLanguage(): string | undefined {
   return tg?.initDataUnsafe.user?.language_code
+}
+
+// Системная кнопка «Назад» в шапке Telegram. false — её нет (браузер, старый клиент), экран рисует свою.
+export function hasBackButton(): boolean {
+  return !!tg?.BackButton && tg.isVersionAtLeast('6.1')
+}
+
+// showBack показывает кнопку «Назад» и возвращает функцию, которая её убирает (для $effect).
+export function showBack(cb: () => void): () => void {
+  const b = tg?.BackButton
+  if (!b || !hasBackButton()) return () => {}
+  b.onClick(cb)
+  b.show()
+  return () => {
+    b.offClick(cb)
+    b.hide()
+  }
 }
 
 export const haptic = {

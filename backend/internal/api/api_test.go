@@ -14,9 +14,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"ayzonexam/internal/ai"
 	"ayzonexam/internal/testpg"
 	"ayzonexam/internal/tgauth"
 	"ayzonexam/internal/users"
+	"ayzonexam/internal/writing"
 )
 
 // fakeBot — выдуманный бот для тестов.
@@ -38,6 +40,13 @@ func TestMain(m *testing.M) {
 func newHandler(t *testing.T, d Deps) http.Handler {
 	t.Helper()
 	d.Users = users.NewStore(pool)
+	d.Writing = writing.NewStore(pool)
+	if d.AI == nil {
+		d.AI = ai.Fake{}
+	}
+	if d.WritingDailyLimit == 0 {
+		d.WritingDailyLimit = 3
+	}
 	d.BotToken = fakeBot
 	d.Now = func() time.Time { return now }
 	return New(d)

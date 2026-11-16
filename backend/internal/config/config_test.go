@@ -20,7 +20,8 @@ func TestValidate(t *testing.T) {
 		{"webhook без адреса", Config{DatabaseURL: "x", BotMode: BotWebhook, BotToken: "t", WebAppURL: "https://a", WebhookSecret: secret}, "PUBLIC_URL"},
 		{"webhook с коротким секретом", Config{DatabaseURL: "x", BotMode: BotWebhook, BotToken: "t", WebAppURL: "https://a", PublicURL: "https://a", WebhookSecret: "s"}, "WEBHOOK_SECRET"},
 		{"webhook с DEV_AUTH", Config{DatabaseURL: "x", BotMode: BotWebhook, BotToken: "t", WebAppURL: "https://a", PublicURL: "https://a", WebhookSecret: secret, DevAuth: true}, "DEV_AUTH"},
-		{"боевой webhook", Config{DatabaseURL: "x", BotMode: BotWebhook, BotToken: "t", WebAppURL: "https://a", PublicURL: "https://a", WebhookSecret: secret}, ""},
+		{"webhook без ключа Gemini", Config{DatabaseURL: "x", BotMode: BotWebhook, BotToken: "t", WebAppURL: "https://a", PublicURL: "https://a", WebhookSecret: secret}, "GEMINI_API_KEY"},
+		{"боевой webhook", Config{DatabaseURL: "x", BotMode: BotWebhook, BotToken: "t", WebAppURL: "https://a", PublicURL: "https://a", WebhookSecret: secret, GeminiAPIKey: "k"}, ""},
 		{"локально без бота", Config{DatabaseURL: "x", BotMode: BotOff, DevAuth: true}, ""},
 	}
 	for _, c := range cases {
@@ -46,5 +47,24 @@ func TestDevTokenOnlyLocally(t *testing.T) {
 	}
 	if c.BotToken != devBotToken {
 		t.Fatalf("без токена в DEV_AUTH ждали тестовый токен, получили %q", c.BotToken)
+	}
+}
+
+func TestWritingSettings(t *testing.T) {
+	t.Setenv("DATABASE_URL", "x")
+	t.Setenv("DEV_AUTH", "1")
+	t.Setenv("BOT_MODE", "off")
+	c, err := FromEnv()
+	if err != nil || c.WritingDailyLimit != 3 || c.WritingWorkers != 3 || c.GeminiModel != DefaultGeminiModel {
+		t.Fatalf("значения по умолчанию: %+v %v", c, err)
+	}
+	t.Setenv("WRITING_DAILY_LIMIT", "0")
+	if _, err := FromEnv(); err == nil || !strings.Contains(err.Error(), "WRITING_DAILY_LIMIT") {
+		t.Fatalf("лимит 0 должен быть ошибкой: %v", err)
+	}
+	t.Setenv("WRITING_DAILY_LIMIT", "5")
+	t.Setenv("WRITING_WORKERS", "много")
+	if _, err := FromEnv(); err == nil || !strings.Contains(err.Error(), "WRITING_WORKERS") {
+		t.Fatalf("не число должно быть ошибкой: %v", err)
 	}
 }

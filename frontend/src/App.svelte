@@ -11,6 +11,10 @@
   let status = $state<Status>('loading')
   let me = $state<Me | null>(null)
 
+  // Кнопка бота «Открыть разбор» открывает приложение с ?check=<id>.
+  const checkParam = Number(new URLSearchParams(location.search).get('check'))
+  const openCheck = Number.isInteger(checkParam) && checkParam > 0 ? checkParam : null
+
   async function load() {
     status = 'loading'
     try {
@@ -40,7 +44,7 @@
 
 {#if status === 'ready' && me}
   {#if me.onboarded}
-    <Shell {me} onchange={update} />
+    <Shell {me} onchange={update} {openCheck} />
   {:else}
     <Onboarding ondone={update} />
   {/if}

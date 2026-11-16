@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -168,6 +169,46 @@ func (b *Bot) Handle(ctx context.Context, u Update) {
 	if err != nil {
 		b.log.Warn("бот: ответ не отправлен", "err", err)
 	}
+}
+
+// WritingChecked сообщает ученику итог проверки Writing (band == nil — проверить не удалось) и даёт
+// кнопку, которая открывает разбор: ?check=<id> читает App.svelte.
+func (b *Bot) WritingChecked(ctx context.Context, chatID int64, lang string, checkID int64, band *float64) error {
+	u, err := url.Parse(b.webAppURL)
+	if err != nil {
+		return fmt.Errorf("WEBAPP_URL: %w", err)
+	}
+	q := u.Query()
+	q.Set("check", strconv.FormatInt(checkID, 10))
+	u.RawQuery = q.Encode()
+	text, button := writingText(lang, band)
+	return b.call(ctx, "sendMessage", map[string]any{
+		"chat_id": chatID,
+		"text":    text,
+		"reply_markup": map[string]any{
+			"inline_keyboard": [][]map[string]any{{{"text": button, "web_app": map[string]string{"url": u.String()}}}},
+		},
+	}, nil)
+}
+
+func writingText(lang string, band *float64) (text, button string) {
+	if band == nil {
+		switch lang {
+		case "ru":
+			return "Не получилось проверить эссе. В дневной лимит эта попытка не засчитана — отправьте ещё раз.", "Открыть"
+		case "en":
+			return "We couldn't check your essay. This attempt doesn't count towards your daily limit — please send it again.", "Open"
+		}
+		return "Inshoni tekshirib bo‘lmadi. Bu urinish kunlik limitga kirmaydi — qayta yuboring.", "Ochish"
+	}
+	b := strconv.FormatFloat(*band, 'f', 1, 64)
+	switch lang {
+	case "ru":
+		return "Эссе проверено: " + b + ". Разбор ошибок и исправленная версия — в приложении.", "Открыть разбор"
+	case "en":
+		return "Your essay is checked: band " + b + ". The feedback and corrected version are in the app.", "Open feedback"
+	}
+	return "Insho tekshirildi: " + b + " ball. Xatolar tahlili va tuzatilgan variant — ilovada.", "Tahlilni ochish"
 }
 
 func greeting(lang string, start bool) (text, button string) {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -15,6 +16,10 @@ const (
 	BotPolling = "polling" // long polling — локально, без публичного адреса
 	BotWebhook = "webhook" // webhook — на сервере
 )
+
+// DefaultGeminiModel — модель проверки Writing, если GEMINI_MODEL не задан. Смена модели — только после
+// прогона калибровки (cmd/calibrate).
+const DefaultGeminiModel = "gemini-3.5-flash"
 
 // devBotToken подписывает initData в режиме DEV_AUTH без настоящего бота.
 const devBotToken = "dev-token"
@@ -29,6 +34,11 @@ type Config struct {
 	WebhookSecret string
 	WebDir        string // папка собранного интерфейса; пусто — сервер отдаёт только API
 	DevAuth       bool   // выдаёт тестовый initData по /api/dev/init-data — только локально
+
+	GeminiAPIKey      string // пусто — проверки заглушкой (ai.Fake), только не на боевом сервере
+	GeminiModel       string
+	WritingDailyLimit int // проверок Writing в день на ученика, пока нет тарифов (этап 6)
+	WritingWorkers    int // сколько проверок идёт одновременно
 }
 
 // FromEnv собирает и проверяет настройки. Ошибка называет переменную, которую надо поправить.
@@ -43,6 +53,15 @@ func FromEnv() (Config, error) {
 		WebhookSecret: os.Getenv("WEBHOOK_SECRET"),
 		WebDir:        os.Getenv("WEB_DIR"),
 		DevAuth:       os.Getenv("DEV_AUTH") == "1",
+		GeminiAPIKey:  os.Getenv("GEMINI_API_KEY"),
+		GeminiModel:   env("GEMINI_MODEL", DefaultGeminiModel),
+	}
+	var err error
+	if c.WritingDailyLimit, err = envInt("WRITING_DAILY_LIMIT", 3, 1, 100); err != nil {
+		return c, err
+	}
+	if c.WritingWorkers, err = envInt("WRITING_WORKERS", 3, 1, 20); err != nil {
+		return c, err
 	}
 	return c, c.validate()
 }
@@ -75,6 +94,9 @@ func (c *Config) validate() error {
 		if c.DevAuth {
 			return errors.New("DEV_AUTH=1 нельзя вместе с BOT_MODE=webhook: это вход без Telegram на боевом сервере")
 		}
+		if c.GeminiAPIKey == "" {
+			return errors.New("для BOT_MODE=webhook нужен GEMINI_API_KEY: без него проверки шли бы заглушкой")
+		}
 	}
 	return nil
 }
@@ -84,6 +106,18 @@ func env(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func envInt(key string, def, min, max int) (int, error) {
+	v := os.Getenv(key)
+	if v == "" {
+		return def, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < min || n > max {
+		return 0, fmt.Errorf("%s=%q: нужно целое от %d до %d", key, v, min, max)
+	}
+	return n, nil
 }
 
 // LoadDotEnv читает KEY=VALUE из файла, не перезаписывая уже заданные переменные.

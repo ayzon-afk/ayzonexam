@@ -8,6 +8,7 @@
     "dev:db": "node scripts/go.mjs run ./cmd/devdb",
     "dev:server": "node scripts/go.mjs run ./cmd/server",
     "dev:web": "npm --prefix frontend run dev",
+    "calibrate": "node scripts/go.mjs run ./cmd/calibrate",
     "build": "npm --prefix frontend run build && node scripts/go.mjs build -trimpath -ldflags=-s -o ../dist/ayzon-exam ./cmd/server"
   }
 }

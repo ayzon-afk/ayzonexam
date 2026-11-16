@@ -14,8 +14,10 @@ import (
 	"strings"
 	"time"
 
+	"ayzonexam/internal/ai"
 	"ayzonexam/internal/tgauth"
 	"ayzonexam/internal/users"
+	"ayzonexam/internal/writing"
 )
 
 // Ташкент без перехода на летнее время: UTC+5 круглый год.
@@ -25,13 +27,16 @@ var tashkent = time.FixedZone("UZT", 5*3600)
 const initDataMaxAge = 24 * time.Hour
 
 type Deps struct {
-	Users    *users.Store
-	BotToken string
-	DevAuth  bool
-	WebDir   string
-	Webhook  http.Handler // nil — бот без webhook
-	Log      *slog.Logger
-	Now      func() time.Time // nil — time.Now
+	Users             *users.Store
+	Writing           *writing.Store
+	AI                ai.Checker // распознавание рукописи; оценку делает очередь (writing.Queue)
+	WritingDailyLimit int
+	BotToken          string
+	DevAuth           bool
+	WebDir            string
+	Webhook           http.Handler // nil — бот без webhook
+	Log               *slog.Logger
+	Now               func() time.Time // nil — time.Now
 }
 
 type server struct{ Deps }
@@ -50,6 +55,11 @@ func New(d Deps) http.Handler {
 	})
 	mux.Handle("GET /api/me", s.auth(s.getMe))
 	mux.Handle("PATCH /api/me", s.auth(s.patchMe))
+	mux.Handle("GET /api/writing/prompts", s.auth(s.writingPrompts))
+	mux.Handle("POST /api/writing/recognize", s.auth(s.recognize))
+	mux.Handle("GET /api/writing/checks", s.auth(s.listChecks))
+	mux.Handle("POST /api/writing/checks", s.auth(s.createCheck))
+	mux.Handle("GET /api/writing/checks/{id}", s.auth(s.getCheck))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found")
 	})

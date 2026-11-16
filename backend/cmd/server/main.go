@@ -11,11 +11,13 @@ import (
 	"syscall"
 	"time"
 
+	"ayzonexam/internal/ai"
 	"ayzonexam/internal/api"
 	"ayzonexam/internal/bot"
 	"ayzonexam/internal/config"
 	"ayzonexam/internal/db"
 	"ayzonexam/internal/users"
+	"ayzonexam/internal/writing"
 )
 
 func main() {
@@ -46,15 +48,26 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
-	deps := api.Deps{
-		Users:    users.NewStore(pool),
-		BotToken: cfg.BotToken,
-		DevAuth:  cfg.DevAuth,
-		WebDir:   cfg.WebDir,
-		Log:      log,
+	var checker ai.Checker = ai.NewGemini(cfg.GeminiAPIKey, cfg.GeminiModel)
+	if cfg.GeminiAPIKey == "" {
+		checker = ai.Fake{}
+		log.Warn("GEMINI_API_KEY не задан: проверки Writing идут заглушкой")
 	}
+	store := writing.NewStore(pool)
+	deps := api.Deps{
+		Users:             users.NewStore(pool),
+		Writing:           store,
+		AI:                checker,
+		WritingDailyLimit: cfg.WritingDailyLimit,
+		BotToken:          cfg.BotToken,
+		DevAuth:           cfg.DevAuth,
+		WebDir:            cfg.WebDir,
+		Log:               log,
+	}
+	queue := &writing.Queue{Store: store, AI: checker, Log: log, Workers: cfg.WritingWorkers, Now: time.Now}
 	if cfg.BotMode != config.BotOff {
 		b := bot.New(cfg.BotToken, cfg.WebAppURL, log)
+		queue.Notify = b
 		webhook := ""
 		if cfg.BotMode == config.BotWebhook {
 			webhook = cfg.PublicURL + "/tg/webhook"
@@ -72,6 +85,9 @@ func run(log *slog.Logger) error {
 		log.Warn("DEV_AUTH=1: вход без Telegram открыт — только для локальной разработки")
 	}
 
+	queueDone := make(chan struct{})
+	go func() { queue.Run(ctx); close(queueDone) }()
+
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           api.New(deps),
@@ -81,16 +97,21 @@ func run(log *slog.Logger) error {
 	}
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
-	log.Info("сервер запущен", "addr", cfg.Addr, "bot", cfg.BotMode)
+	log.Info("сервер запущен", "addr", cfg.Addr, "bot", cfg.BotMode, "ai", checker.Model())
 
 	select {
 	case err := <-errc:
+		stop()
+		<-queueDone
 		return err
 	case <-ctx.Done():
 	}
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	err = srv.Shutdown(shutdownCtx)
+	// Воркеры возвращают незаконченные проверки в очередь — дождаться, пока база ещё открыта.
+	<-queueDone
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 	return nil
