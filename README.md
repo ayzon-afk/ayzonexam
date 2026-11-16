@@ -26,8 +26,7 @@ npm run dev:web      # интерфейс: адрес покажет Vite
 ```
 
 В обычном браузере вход работает без Telegram (`DEV_AUTH=1` в `.env`). Другой ученик —
-`?uid=2` в адресе, другой язык Telegram — `?lang=en`, оба варианта анимации загрузки рядом —
-`?preview=loaders`.
+`?uid=2` в адресе, другой язык Telegram — `?lang=en`.
 
 ## Проверка Writing (Gemini)
 

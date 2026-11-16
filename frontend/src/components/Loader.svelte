@@ -1,16 +1,10 @@
-<script lang="ts" module>
-  // Долгое ожидание (запуск, проверка эссе) — персонаж и мотивирующие фразы; короткое — Skeleton.
-  // penguin — пингвин жмёт штангу, на блинах растёт балл (идея владельца); chart — растущий график.
-  // Какой показывать — решает владелец (ROADMAP, этап 12); второй уйдёт.
-  export type LoaderKind = 'penguin' | 'chart'
-  export const LOADER: LoaderKind = 'penguin'
-</script>
-
 <script lang="ts">
+  // Долгое ожидание (запуск, проверка эссе): пингвин-талисман жмёт штангу, на ней растёт балл, под ним
+  // мотивирующие фразы. Короткое ожидание — Skeleton.
   import { onDestroy } from 'svelte'
   import { t, type Key } from '../lib/i18n/index.svelte'
 
-  let { kind = LOADER, phrases = true }: { kind?: LoaderKind; phrases?: boolean } = $props()
+  let { phrases = true }: { phrases?: boolean } = $props()
 
   const PHRASES: Key[] = ['loader.m1', 'loader.m2', 'loader.m3', 'loader.m4', 'loader.m5', 'loader.m6']
 
@@ -24,7 +18,6 @@
 </script>
 
 <div class="loader" role="status">
-  {#if kind === 'penguin'}
     <svg viewBox="0 0 120 124" aria-hidden="true">
       <ellipse class="shadow" cx="60" cy="116" rx="28" ry="4" />
       <g class="body">
@@ -53,15 +46,6 @@
         <text x="60" y="26" text-anchor="middle">{band}</text>
       </g>
     </svg>
-  {:else}
-    <svg viewBox="0 0 120 100" aria-hidden="true">
-      {#each [22, 34, 48, 62, 80] as h, i (i)}
-        <rect class="col" x={12 + i * 20} y={90 - h} width="14" height={h} rx="4" style:animation-delay="{i * 0.16}s" />
-      {/each}
-      <path class="axis" d="M6 90h108" />
-      <text class="big" x="60" y="18" text-anchor="middle">{band}</text>
-    </svg>
-  {/if}
   {#if phrases}
     {#key phrase}<p class="phrase">{t(phrase)}</p>{/key}
   {/if}
@@ -161,34 +145,6 @@
     }
   }
 
-  .col {
-    fill: var(--accent);
-    transform-box: fill-box;
-    transform-origin: bottom;
-    animation: grow 1.6s ease-in-out infinite;
-  }
-
-  .axis {
-    stroke: var(--separator);
-    stroke-width: 2;
-  }
-
-  .big {
-    font-size: 18px;
-  }
-
-  @keyframes grow {
-    0%,
-    100% {
-      transform: scaleY(0.25);
-      opacity: 0.5;
-    }
-    50% {
-      transform: scaleY(1);
-      opacity: 1;
-    }
-  }
-
   .phrase {
     min-height: 2.8em;
     max-width: 280px;
@@ -207,7 +163,6 @@
   @media (prefers-reduced-motion: reduce) {
     .lift,
     .body,
-    .col,
     .phrase {
       animation: none;
     }

@@ -1,5 +1,5 @@
 /* Фирменные цвета (DECISIONS 2026-11-16): светлая — белый и небесно-голубой, тёмная — чёрный и
-   матовый красный. Тема Telegram не подмешивается; выбор — в профиле (lib/theme.ts), «как в системе» —
+   рубиново-красный. Тема Telegram не подмешивается; выбор — в профиле (lib/theme.ts), «как в системе» —
    по теме телефона или Telegram. */
 :root {
   --bg: #ffffff;
@@ -34,8 +34,8 @@
   --bg: #0d0d0f;
   --text: #f2f2f3;
   --hint: #8c8c95;
-  --link: #e0767c;
-  --accent: #c2414a;
+  --link: #ff6b6e;
+  --accent: #e5383b;
   --accent-text: #ffffff;
   --surface: #050506;
   --section: #17171a;
@@ -43,7 +43,7 @@
   --danger: #ff8a5c;
   --ok: #3cc47a;
   --score: #f2f2f3;
-  --grad: linear-gradient(135deg, #c2414a, #5c1a22);
+  --grad: linear-gradient(135deg, #e5383b, #8f1420);
   --shimmer: #222227;
   color-scheme: dark;
 }
@@ -53,8 +53,8 @@
     --bg: #0d0d0f;
     --text: #f2f2f3;
     --hint: #8c8c95;
-    --link: #e0767c;
-    --accent: #c2414a;
+    --link: #ff6b6e;
+    --accent: #e5383b;
     --accent-text: #ffffff;
     --surface: #050506;
     --section: #17171a;
@@ -62,7 +62,7 @@
     --danger: #ff8a5c;
     --ok: #3cc47a;
     --score: #f2f2f3;
-    --grad: linear-gradient(135deg, #c2414a, #5c1a22);
+    --grad: linear-gradient(135deg, #e5383b, #8f1420);
     --shimmer: #222227;
     color-scheme: dark;
   }
