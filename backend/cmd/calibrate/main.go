@@ -106,6 +106,12 @@ func run() error {
 				if e.err == nil || !strings.Contains(e.err.Error(), "429") {
 					break
 				}
+				// Суть — в хвосте: какой лимит (в минуту или в день) и сколько ждать.
+				msg := e.err.Error()
+				if i := strings.Index(msg, "Quota exceeded"); i >= 0 {
+					msg = msg[i:]
+				}
+				fmt.Fprintf(os.Stderr, "%s: лимит Gemini, жду минуту: %.300s\n", e.name, msg)
 				time.Sleep(65 * time.Second)
 			}
 			if e.err == nil {
