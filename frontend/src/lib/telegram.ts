@@ -13,6 +13,9 @@ interface WebApp {
   isVersionAtLeast(version: string): boolean
   disableVerticalSwipes?(): void
   close(): void
+  colorScheme?: 'light' | 'dark'
+  onEvent?(event: string, cb: () => void): void
+  openTelegramLink?(url: string): void
   setHeaderColor?(color: string): void
   setBackgroundColor?(color: string): void
   setBottomBarColor?(color: string): void
@@ -59,12 +62,28 @@ export function closeApp() {
   tg?.close()
 }
 
-// Шапка, фон и нижняя полоса Telegram под цвет своей темы; null — вернуть цвета Telegram.
-export function setChrome(color: string | null) {
+// Шапка, фон и нижняя полоса Telegram — в цвет приложения: цвета свои, не Telegram.
+export function setChrome(color: string) {
   if (!tg || !tg.isVersionAtLeast('6.9')) return
-  tg.setHeaderColor?.(color ?? 'bg_color')
-  tg.setBackgroundColor?.(color ?? 'bg_color')
-  if (tg.isVersionAtLeast('7.10')) tg.setBottomBarColor?.(color ?? 'bottom_bar_bg_color')
+  tg.setHeaderColor?.(color)
+  tg.setBackgroundColor?.(color)
+  if (tg.isVersionAtLeast('7.10')) tg.setBottomBarColor?.(color)
+}
+
+// Светлая или тёмная тема Telegram; null — вне Telegram (тогда решает тема телефона через CSS).
+export function telegramScheme(): 'light' | 'dark' | null {
+  return inTelegram() ? (tg?.colorScheme ?? null) : null
+}
+
+export function onTelegramTheme(cb: () => void) {
+  tg?.onEvent?.('themeChanged', cb)
+}
+
+// Ссылка t.me внутри Telegram — без выхода из приложения. false — Telegram нет.
+export function openTelegramLink(url: string): boolean {
+  if (!inTelegram() || !tg?.openTelegramLink) return false
+  tg.openTelegramLink(url)
+  return true
 }
 
 export function telegramLanguage(): string | undefined {

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { Component } from 'svelte'
+  import { onMount, type Component } from 'svelte'
+  import Skeleton from '../components/Skeleton.svelte'
   import TabBar from '../components/TabBar.svelte'
   import Home from '../tabs/Home.svelte'
   import Exams from '../tabs/Exams.svelte'
@@ -34,6 +35,19 @@
     history: () => import('./demo/History.svelte'),
   }
 
+  // Загруженные экраны — сразу из памяти: переход не показывает заготовку и идёт плавно.
+  const loaded = $state<Record<string, Component<any>>>({})
+  function load(s: string) {
+    return screens[s]!().then((m) => (loaded[s] = m.default))
+  }
+
+  // Через пару секунд после открытия — подгрузить все экраны заранее (~15 КБ): первый экран не ждёт их,
+  // а переходы потом мгновенные. Неудача не страшна — экран загрузится при нажатии.
+  onMount(() => {
+    const id = setTimeout(() => Object.keys(screens).forEach((s) => load(s).catch(() => {})), 2000)
+    return () => clearTimeout(id)
+  })
+
   const top = $derived(current())
 </script>
 
@@ -57,17 +71,18 @@
       {#key top.id}
         <WritingResult id={top.id} onback={back} onagain={() => replace({ s: 'writingNew' })} />
       {/key}
-    {:else}
+    {:else if loaded[top.s]}
+      {@const Screen = loaded[top.s]}
       {#key top}
-        {#await screens[top.s]!()}
-          <p class="hint">{t('app.loading')}</p>
-        {:then m}
-          <m.default r={top} {me} />
-        {:catch}
-          <p class="error">{t('app.error')}</p>
-          <button class="btn btn-plain" onclick={back}>{t('onb.back')}</button>
-        {/await}
+        <Screen r={top} {me} />
       {/key}
+    {:else}
+      {#await load(top.s)}
+        <Skeleton rows={4} />
+      {:catch}
+        <p class="error">{t('app.error')}</p>
+        <button class="btn btn-plain" onclick={back}>{t('onb.back')}</button>
+      {/await}
     {/if}
   </main>
 

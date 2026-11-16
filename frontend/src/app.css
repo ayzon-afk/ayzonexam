@@ -1,16 +1,22 @@
-/* Цвета — из темы Telegram (переменные --tg-theme-* ставит telegram-web-app.js);
-   запасные значения — для обычного браузера при разработке. Фирменный стиль — отдельной задачей (SPEC). */
+/* Фирменные цвета (DECISIONS 2026-11-16): светлая — белый и небесно-голубой, тёмная — чёрный и
+   матовый красный. Тема Telegram не подмешивается; выбор — в профиле (lib/theme.ts), «как в системе» —
+   по теме телефона или Telegram. */
 :root {
-  --bg: var(--tg-theme-bg-color, #ffffff);
-  --text: var(--tg-theme-text-color, #111418);
-  --hint: var(--tg-theme-hint-color, #8a9099);
-  --link: var(--tg-theme-link-color, #2481cc);
-  --accent: var(--tg-theme-button-color, #2481cc);
-  --accent-text: var(--tg-theme-button-text-color, #ffffff);
-  --surface: var(--tg-theme-secondary-bg-color, #f1f2f5);
-  --section: var(--tg-theme-section-bg-color, #ffffff);
-  --separator: var(--tg-theme-section-separator-color, #e3e5e8);
-  --danger: var(--tg-theme-destructive-text-color, #e53935);
+  --bg: #ffffff;
+  --text: #0f1b2a;
+  --hint: #74818f;
+  --link: #1479c9;
+  --accent: #1d8fe1;
+  --accent-text: #ffffff;
+  --surface: #f1f6fb;
+  --section: #ffffff;
+  --separator: #e1e8ef;
+  --danger: #e0393e;
+  --ok: #23955a;
+  --score: #1d8fe1;
+  --grad: linear-gradient(135deg, #1d8fe1, #62c2ff);
+  --shimmer: #e6edf4;
+  color-scheme: light;
 
   /* Полноэкранный режим Telegram: системные вырезы плюс его собственная шапка. */
   --safe-top: calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px));
@@ -20,47 +26,46 @@
   --tabbar-h: 58px;
   /* Ноутбук (от 900px): вкладки — панелью слева этой ширины. */
   --side-w: 220px;
-  color-scheme: light dark;
+}
+
+/* Тёмная: data-theme='dark' или «как в системе» при тёмной теме телефона. Набор цветов один —
+   повторён, потому что CSS не умеет «или» между @media и атрибутом. */
+:root[data-theme='dark'] {
+  --bg: #0d0d0f;
+  --text: #f2f2f3;
+  --hint: #8c8c95;
+  --link: #e0767c;
+  --accent: #c2414a;
+  --accent-text: #ffffff;
+  --surface: #050506;
+  --section: #17171a;
+  --separator: #26262b;
+  --danger: #ff8a5c;
+  --ok: #3cc47a;
+  --score: #f2f2f3;
+  --grad: linear-gradient(135deg, #c2414a, #5c1a22);
+  --shimmer: #222227;
+  color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --bg: var(--tg-theme-bg-color, #17191c);
-    --text: var(--tg-theme-text-color, #f2f3f5);
-    --hint: var(--tg-theme-hint-color, #8d939b);
-    --surface: var(--tg-theme-secondary-bg-color, #0f1012);
-    --section: var(--tg-theme-section-bg-color, #1f2226);
-    --separator: var(--tg-theme-section-separator-color, #2c3035);
+    --bg: #0d0d0f;
+    --text: #f2f2f3;
+    --hint: #8c8c95;
+    --link: #e0767c;
+    --accent: #c2414a;
+    --accent-text: #ffffff;
+    --surface: #050506;
+    --section: #17171a;
+    --separator: #26262b;
+    --danger: #ff8a5c;
+    --ok: #3cc47a;
+    --score: #f2f2f3;
+    --grad: linear-gradient(135deg, #c2414a, #5c1a22);
+    --shimmer: #222227;
+    color-scheme: dark;
   }
-}
-
-/* Своя тема из профиля (lib/theme.ts): цвета задаются напрямую, тема Telegram и системы не влияет. */
-:root[data-theme='light'] {
-  --bg: #ffffff;
-  --text: #111418;
-  --hint: #8a9099;
-  --link: #2481cc;
-  --accent: #2481cc;
-  --accent-text: #ffffff;
-  --surface: #f1f2f5;
-  --section: #ffffff;
-  --separator: #e3e5e8;
-  --danger: #e53935;
-  color-scheme: light;
-}
-
-:root[data-theme='dark'] {
-  --bg: #17191c;
-  --text: #f2f3f5;
-  --hint: #8d939b;
-  --link: #5aa9f0;
-  --accent: #3b8fe0;
-  --accent-text: #ffffff;
-  --surface: #0f1012;
-  --section: #1f2226;
-  --separator: #2c3035;
-  --danger: #ff5c5c;
-  color-scheme: dark;
 }
 
 * {
@@ -182,7 +187,79 @@ input[type='date'] {
 .num {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--accent);
+  color: var(--score);
+}
+
+/* Рост и падение: «↑3», «+0.5». */
+.up {
+  color: var(--ok);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.down {
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Плавные переходы между экранами (lib/nav.svelte.ts): вперёд — новый экран въезжает справа, назад —
+   уезжает вправо, вкладки — растворяются. Панель вкладок стоит на месте. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.26s;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+html[data-nav='forward']::view-transition-old(root) {
+  animation-name: vt-out-left;
+}
+
+html[data-nav='forward']::view-transition-new(root) {
+  animation-name: vt-in-right;
+}
+
+html[data-nav='back']::view-transition-old(root) {
+  animation-name: vt-out-right;
+}
+
+html[data-nav='back']::view-transition-new(root) {
+  animation-name: vt-in-left;
+}
+
+@keyframes vt-in-right {
+  from {
+    transform: translateX(28%);
+    opacity: 0;
+  }
+}
+
+@keyframes vt-out-left {
+  to {
+    transform: translateX(-12%);
+    opacity: 0;
+  }
+}
+
+@keyframes vt-in-left {
+  from {
+    transform: translateX(-12%);
+    opacity: 0;
+  }
+}
+
+@keyframes vt-out-right {
+  to {
+    transform: translateX(28%);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
 }
 
 /* Заголовок раздела со ссылкой «Все» справа. */

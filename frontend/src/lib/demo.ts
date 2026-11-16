@@ -4,14 +4,15 @@
 // Задания — в lib/demo-exam.ts; здесь только то, что видно на вкладках.
 import type { Key } from './i18n/index.svelte'
 
-export type Center = { id: number; name: string; avg: number; students: number }
+// delta — сколько мест центр или ученик поднялся (+) или опустился (−) за неделю.
+export type Center = { id: number; name: string; avg: number; students: number; delta: number }
 
 export const centers: Center[] = [
-  { id: 1, name: 'Nova Academy', avg: 6.9, students: 412 },
-  { id: 2, name: 'Atlas English', avg: 6.7, students: 356 },
-  { id: 3, name: 'Zenit Study', avg: 6.6, students: 298 },
-  { id: 4, name: 'Orion School', avg: 6.4, students: 241 },
-  { id: 5, name: 'Lingua Park', avg: 6.2, students: 187 },
+  { id: 1, name: 'Nova Academy', avg: 6.9, students: 412, delta: 0 },
+  { id: 2, name: 'Atlas English', avg: 6.7, students: 356, delta: 1 },
+  { id: 3, name: 'Zenit Study', avg: 6.6, students: 298, delta: -1 },
+  { id: 4, name: 'Orion School', avg: 6.4, students: 241, delta: 2 },
+  { id: 5, name: 'Lingua Park', avg: 6.2, students: 187, delta: 0 },
 ]
 
 export const MY_CENTER = 2
@@ -20,19 +21,19 @@ export function centerById(id: number): Center {
   return centers.find((c) => c.id === id) ?? centers[0]!
 }
 
-export type Player = { nick: string; band: number; center: number }
+export type Player = { nick: string; band: number; center: number; delta: number }
 
 export const players: Player[] = [
-  { nick: 'aziz_8', band: 8.5, center: 1 },
-  { nick: 'malika.ielts', band: 8.0, center: 2 },
-  { nick: 'sardor07', band: 8.0, center: 3 },
-  { nick: 'nilufar_s', band: 7.5, center: 1 },
-  { nick: 'jasur_b', band: 7.5, center: 2 },
-  { nick: 'dilnoza.t', band: 7.5, center: 4 },
-  { nick: 'timur_uz', band: 7.0, center: 2 },
-  { nick: 'kamila_7', band: 7.0, center: 5 },
-  { nick: 'bekzod_m', band: 7.0, center: 3 },
-  { nick: 'shahzoda', band: 6.5, center: 2 },
+  { nick: 'aziz_8', band: 8.5, center: 1, delta: 0 },
+  { nick: 'malika.ielts', band: 8.0, center: 2, delta: 1 },
+  { nick: 'sardor07', band: 8.0, center: 3, delta: -1 },
+  { nick: 'nilufar_s', band: 7.5, center: 1, delta: 3 },
+  { nick: 'jasur_b', band: 7.5, center: 2, delta: 0 },
+  { nick: 'dilnoza.t', band: 7.5, center: 4, delta: -2 },
+  { nick: 'timur_uz', band: 7.0, center: 2, delta: 2 },
+  { nick: 'kamila_7', band: 7.0, center: 5, delta: 0 },
+  { nick: 'bekzod_m', band: 7.0, center: 3, delta: -1 },
+  { nick: 'shahzoda', band: 6.5, center: 2, delta: 4 },
 ]
 
 export const friends = ['malika.ielts', 'jasur_b', 'kamila_7']
@@ -44,6 +45,7 @@ export const mine = {
   band: 6.0,
   place: { city: 148, center: 12, friends: 4, country: 612 } as Record<Scope, number>,
   total: { city: 3214, center: 356, friends: 4, country: 9870 } as Record<Scope, number>,
+  delta: { city: 12, center: 2, friends: 0, country: 40 } as Record<Scope, number>,
   progress: [5.0, 5.5, 5.5, 6.0, 5.5, 6.0, 6.5, 6.0],
   checked: 3,
   bonus: 1,
@@ -58,6 +60,9 @@ export const winners: { month: string; nick: string; band: number; center: numbe
 ]
 
 export const TOURNAMENT_PLAYERS = 1248
+
+// Результат текущего ученика в прошлом турнире — для карточки «поделиться».
+export const myLastTournament = { month: '2026-10-15', place: 148, band: 6.0 }
 
 // Турнир — последнее воскресенье месяца, 10:00 по Ташкенту (05:00 UTC).
 export function nextTournament(now: Date): Date {
@@ -144,10 +149,10 @@ export const attempts: Attempt[] = [
 export const report = {
   overall: 6.5,
   parts: [
-    { name: 'Listening', band: 6.5 },
-    { name: 'Reading', band: 7.0 },
-    { name: 'Writing', band: 6.0 },
-    { name: 'Speaking', band: 6.5 },
+    { name: 'Listening', band: 6.5, prev: 6.0 },
+    { name: 'Reading', band: 7.0, prev: 6.5 },
+    { name: 'Writing', band: 6.0, prev: 6.0 },
+    { name: 'Speaking', band: 6.5, prev: 6.0 },
   ],
   weak: ['demo.w1', 'demo.w2', 'demo.w3'] as Key[],
   plan: ['demo.p1', 'demo.p2', 'demo.p3', 'demo.p4'] as Key[],

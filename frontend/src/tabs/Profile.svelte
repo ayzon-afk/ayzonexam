@@ -1,6 +1,7 @@
 <script lang="ts">
   import BandPicker from '../components/BandPicker.svelte'
   import Chart from '../components/Chart.svelte'
+  import Delta from '../components/Delta.svelte'
   import Demo from '../components/Demo.svelte'
   import { api, ApiError, type Me } from '../lib/api'
   import { badges, centerById, mine, MY_CENTER } from '../lib/demo'
@@ -87,6 +88,7 @@
     <div>
       <p class="hint">{t('profile.current')} <Demo /></p>
       <p class="num big">{formatBand(mine.band)}</p>
+      <p class="tag"><Delta n={0.5} band /> {t('delta.month')}</p>
     </div>
     <div>
       <p class="hint">{t('home.goal')}</p>

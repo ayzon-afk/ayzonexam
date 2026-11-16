@@ -1,3 +1,5 @@
+import { flushSync } from 'svelte'
+
 // Навигация без роутера: вкладка и стопка экранов поверх неё. «Назад» снимает верхний экран,
 // нажатие на вкладку очищает стопку.
 
@@ -28,24 +30,38 @@ export function current(): Route | undefined {
   return nav.stack[nav.stack.length - 1]
 }
 
+// Смена экрана с плавным переходом (app.css, «Плавные переходы»): браузер снимает старый кадр, Svelte
+// рисует новый, анимация идёт между ними. Нет View Transitions или включено «уменьшить движение» — сразу.
+type Dir = 'forward' | 'back' | 'tab'
+
+function move(dir: Dir, change: () => void) {
+  const done = () => {
+    change()
+    window.scrollTo(0, 0)
+  }
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown }
+  if (!doc.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) return done()
+  document.documentElement.dataset.nav = dir
+  doc.startViewTransition(() => flushSync(done))
+}
+
 export function go(r: Route) {
-  nav.stack.push(r)
-  window.scrollTo(0, 0)
+  move('forward', () => nav.stack.push(r))
 }
 
 export function back() {
-  nav.stack.pop()
-  window.scrollTo(0, 0)
+  move('back', () => nav.stack.pop())
 }
 
 // replace меняет верхний экран: после «Отправить» — разбор, и «Назад» не возвращает на форму.
 export function replace(r: Route) {
-  nav.stack[nav.stack.length - 1] = r
-  window.scrollTo(0, 0)
+  move('forward', () => (nav.stack[nav.stack.length - 1] = r))
 }
 
 export function openTab(tab: Tab) {
-  nav.tab = tab
-  nav.stack = []
-  window.scrollTo(0, 0)
+  if (nav.tab === tab && nav.stack.length === 0) return
+  move(nav.stack.length ? 'back' : 'tab', () => {
+    nav.tab = tab
+    nav.stack = []
+  })
 }

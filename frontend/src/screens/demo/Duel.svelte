@@ -2,6 +2,7 @@
   import { onDestroy } from 'svelte'
   import Avatar from '../../components/Avatar.svelte'
   import Head from '../../components/Head.svelte'
+  import ShareCard from '../../components/ShareCard.svelte'
   import { clock } from '../../lib/date'
   import { friends } from '../../lib/demo'
   import { duelWords } from '../../lib/demo-exam'
@@ -101,11 +102,12 @@
     {/each}
   </div>
 {:else}
-  <section class="card final">
-    <p class="big">{mine > theirs ? t('duel.win') : mine === theirs ? t('duel.draw') : t('duel.lose')}</p>
-    <p class="num">{mine} : {theirs}</p>
-    <p class="hint">{t('duel.vs', { nick: rival })}</p>
-  </section>
+  <ShareCard
+    big="{mine} : {theirs}"
+    title={mine > theirs ? t('duel.win') : mine === theirs ? t('duel.draw') : t('duel.lose')}
+    sub={t('duel.vs', { nick: rival })}
+    text={t('share.duel', { score: `${mine}:${theirs}`, nick: rival })}
+  />
   <button class="btn" onclick={() => start(rival)}>{t('duel.rematch')}</button>
   <button class="btn btn-plain" onclick={() => (phase = 'pick')}>{t('duel.other')}</button>
 {/if}
@@ -154,15 +156,5 @@
 
   .wrong {
     border-color: var(--danger) !important;
-  }
-
-  .final {
-    text-align: center;
-    display: grid;
-    gap: 6px;
-  }
-
-  .final .num {
-    font-size: 28px;
   }
 </style>

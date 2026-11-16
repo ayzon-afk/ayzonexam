@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Logo from './Logo.svelte'
   import { t, type Key } from '../lib/i18n/index.svelte'
   import { nav, openTab, type Tab } from '../lib/nav.svelte'
   import { haptic } from '../lib/telegram'
@@ -17,7 +18,7 @@
 </script>
 
 <nav class:sub>
-  <p class="brand">AYZON EXAM</p>
+  <p class="brand"><Logo size={30} /></p>
   {#each tabs as tab (tab.id)}
     <button
       class:on={nav.tab === tab.id}
@@ -35,6 +36,8 @@
 
 <style>
   nav {
+    /* Панель не участвует в анимации перехода — стоит на месте. */
+    view-transition-name: tabbar;
     position: fixed;
     inset: auto 0 0;
     display: grid;
@@ -104,10 +107,7 @@
 
     .brand {
       display: block;
-      padding: 0 12px 16px;
-      font-size: 18px;
-      font-weight: 800;
-      letter-spacing: 0.02em;
+      padding: 0 8px 18px;
     }
 
     button {

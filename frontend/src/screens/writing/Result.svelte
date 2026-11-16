@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte'
   import BackBar from '../../components/BackBar.svelte'
+  import Loader from '../../components/Loader.svelte'
+  import Skeleton from '../../components/Skeleton.svelte'
   import { api, ApiError, type Check, type Criterion } from '../../lib/api'
   import { formatBand } from '../../lib/exam'
   import { getLang, t, type Key } from '../../lib/i18n/index.svelte'
@@ -61,7 +63,7 @@
 {#if failed === 'missing'}
   <p class="error">{t('app.error')}</p>
 {:else if !check}
-  <p class="hint">{failed ? t('app.error') : t('app.loading')}</p>
+  {#if failed}<p class="error">{t('app.error')}</p>{:else}<Skeleton rows={2} />{/if}
 {:else}
   <header>
     <h1>{t(check.task === 'task1' ? 'task.task1' : 'task.task2')}</h1>
@@ -70,8 +72,8 @@
 
   {#if pending}
     <section class="card wait">
-      <span class="spinner" aria-hidden="true"></span>
       <h2>{t('result.checking')}</h2>
+      <Loader />
       <p class="hint">{t('result.checkingHint')}</p>
     </section>
   {:else if check.status === 'failed'}
@@ -166,27 +168,6 @@
     text-align: center;
   }
 
-  .spinner {
-    width: 32px;
-    height: 32px;
-    border: 3px solid var(--separator);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.9s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .spinner {
-      animation-duration: 3s;
-    }
-  }
-
   .score {
     display: grid;
     gap: 4px;
@@ -198,7 +179,7 @@
     font-weight: 700;
     line-height: 1.1;
     font-variant-numeric: tabular-nums;
-    color: var(--accent);
+    color: var(--score);
   }
 
   .crits {

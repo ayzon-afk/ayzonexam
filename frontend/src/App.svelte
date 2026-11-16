@@ -4,6 +4,8 @@
   import { initTelegram, telegramLanguage } from './lib/telegram'
   import { langFromTelegram, ready, setLang, t } from './lib/i18n/index.svelte'
   import { go, nav } from './lib/nav.svelte'
+  import Loader, { type LoaderKind } from './components/Loader.svelte'
+  import Logo from './components/Logo.svelte'
   import Onboarding from './screens/Onboarding.svelte'
   import Shell from './screens/Shell.svelte'
 
@@ -12,6 +14,10 @@
   let status = $state<Status>('loading')
   let me = $state<Me | null>(null)
   let noDict = $state(false)
+
+  // Сравнение вариантов анимации загрузки — только при разработке: ?preview=loaders.
+  const preview = import.meta.env.DEV && new URLSearchParams(location.search).get('preview') === 'loaders'
+  const kinds: LoaderKind[] = ['penguin', 'chart']
 
   // Кнопка бота «Открыть разбор» открывает приложение с ?check=<id>.
   const checkParam = Number(new URLSearchParams(location.search).get('check'))
@@ -68,10 +74,18 @@
   })
 </script>
 
-{#if !ready()}
+{#if preview && ready()}
+  <main class="center preview">
+    {#each kinds as k, i (k)}
+      <div class="card"><p class="hint">{i === 0 ? 'A' : 'B'}</p><Loader kind={k} /></div>
+    {/each}
+  </main>
+{:else if !ready()}
   <!-- Словарь ещё грузится. Не загрузился — текстов нет совсем, поэтому только знак «повторить». -->
   {#if noDict}
     <main class="center"><button class="btn" aria-label="Retry" onclick={() => location.reload()}>↻</button></main>
+  {:else}
+    <main class="center"><Loader phrases={false} /></main>
   {/if}
 {:else if status === 'ready' && me}
   {#if me.onboarded}
@@ -82,11 +96,11 @@
 {:else}
   <main class="center">
     {#if status === 'loading'}
-      <p class="hint">{t('app.loading')}</p>
+      <Loader />
     {:else if status === 'outside'}
       <p>{t('app.outside')}</p>
     {:else if status === 'out'}
-      <p class="brand">AYZON EXAM</p>
+      <p class="brand"><Logo size={40} /></p>
       <p>{t('logout.done')}</p>
       <button class="btn" onclick={load}>{t('logout.again')}</button>
     {:else if status === 'expired'}
@@ -100,8 +114,18 @@
 
 <style>
   .brand {
-    font-size: 22px;
-    font-weight: 800;
+    justify-self: center;
+  }
+
+  .preview {
+    grid-auto-flow: column;
+    gap: 16px;
+  }
+
+  .preview .card {
+    display: grid;
+    gap: 8px;
+    width: 240px;
   }
 
   .center {

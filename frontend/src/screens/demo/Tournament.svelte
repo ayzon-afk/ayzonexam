@@ -2,8 +2,9 @@
   import Avatar from '../../components/Avatar.svelte'
   import Countdown from '../../components/Countdown.svelte'
   import Head from '../../components/Head.svelte'
+  import ShareCard from '../../components/ShareCard.svelte'
   import { fmtDate, fmtMonth } from '../../lib/date'
-  import { centerById, nextTournament, TOURNAMENT_PLAYERS, winners } from '../../lib/demo'
+  import { centerById, myLastTournament, nextTournament, TOURNAMENT_PLAYERS, winners } from '../../lib/demo'
   import { formatBand } from '../../lib/exam'
   import { t } from '../../lib/i18n/index.svelte'
   import { go } from '../../lib/nav.svelte'
@@ -52,6 +53,14 @@
   <li>{t('tour.rule3')}</li>
   <li>{t('tour.rule4')}</li>
 </ul>
+
+<div class="sect"><h2>{t('tour.mine', { month: fmtMonth(myLastTournament.month) })}</h2></div>
+<ShareCard
+  big="#{myLastTournament.place}"
+  title={t('tour.inCity')}
+  sub="{t('result.band')}: {formatBand(myLastTournament.band)}"
+  text={t('share.tour', { place: myLastTournament.place, band: formatBand(myLastTournament.band) })}
+/>
 
 <div class="sect"><h2>{t('tour.winners')}</h2></div>
 <ul class="card rows">

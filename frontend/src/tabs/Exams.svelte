@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Demo from '../components/Demo.svelte'
+  import Icon, { type IconName } from '../components/Icon.svelte'
+  import Skeleton from '../components/Skeleton.svelte'
   import { api, type History } from '../lib/api'
   import { formatBand } from '../lib/exam'
   import { getLang, t, type Key } from '../lib/i18n/index.svelte'
@@ -11,10 +13,10 @@
   const onopen = (id: number) => go({ s: 'writingCheck', id })
 
   // Практика по частям — демо-экраны этапа 12; Writing ниже — настоящий.
-  const parts: { name: string; hint: Key; r: Route }[] = [
-    { name: 'Reading', hint: 'quick.reading', r: { s: 'practice', part: 'reading' } },
-    { name: 'Listening', hint: 'quick.listening', r: { s: 'practice', part: 'listening' } },
-    { name: 'Speaking', hint: 'quick.speaking', r: { s: 'speaking' } },
+  const parts: { name: string; hint: Key; icon: IconName; r: Route }[] = [
+    { name: 'Reading', hint: 'quick.reading', icon: 'book', r: { s: 'practice', part: 'reading' } },
+    { name: 'Listening', hint: 'quick.listening', icon: 'headphones', r: { s: 'practice', part: 'listening' } },
+    { name: 'Speaking', hint: 'quick.speaking', icon: 'mic', r: { s: 'speaking' } },
   ]
 
   let history = $state<History | null>(null)
@@ -42,6 +44,7 @@
 <h1>{t('tab.exams')}</h1>
 
 <button class="card level" onclick={() => go({ s: 'practice', part: 'level' })}>
+  <span class="ico"><Icon name="target" /></span>
   <span class="grow">
     <strong>{t('level.title')} <Demo /></strong>
     <span class="tag">{t('level.lead')}</span>
@@ -50,7 +53,7 @@
 </button>
 
 <section class="card mock">
-  <h2>{t('mock.title')} <Demo /></h2>
+  <h2><span class="ico inline"><Icon name="timer" size={20} /></span> {t('mock.title')} <Demo /></h2>
   <p class="hint">{t('mock.lead')}</p>
   <button class="btn" onclick={() => go({ s: 'mock' })}>{t('mock.open')}</button>
 </section>
@@ -59,6 +62,7 @@
 <div class="parts">
   {#each parts as p (p.name)}
     <button class="card part" onclick={() => go(p.r)}>
+      <span class="ico"><Icon name={p.icon} /></span>
       <strong>{p.name}</strong>
       <span class="tag">{t(p.hint)}</span>
     </button>
@@ -66,7 +70,7 @@
 </div>
 
 <section class="card writing">
-  <h2>Writing</h2>
+  <h2><span class="ico inline"><Icon name="pen" size={20} /></span> Writing</h2>
   <p class="hint">{t('writing.lead')}</p>
   {#if left !== null && history}
     <p class="left">
@@ -106,9 +110,12 @@
       {/each}
     </ul>
   {/if}
+{:else}
+  <Skeleton rows={2} />
 {/if}
 
 <button class="card row history" onclick={() => go({ s: 'history' })}>
+  <Icon name="history" />
   <span class="grow">{t('history.title')} <Demo /></span>
   <span class="chev" aria-hidden="true">›</span>
 </button>
@@ -176,12 +183,35 @@
     font-size: 22px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    color: var(--accent);
+    color: var(--score);
   }
 
   .status {
     font-size: 13px;
     white-space: nowrap;
+  }
+
+  .ico {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    flex: none;
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--accent);
+  }
+
+  .ico.inline {
+    display: inline-grid;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    vertical-align: middle;
+  }
+
+  .part .ico {
+    margin-bottom: 6px;
   }
 
   .level {

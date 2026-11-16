@@ -1,5 +1,6 @@
 <script lang="ts">
   import Avatar from '../components/Avatar.svelte'
+  import Delta from '../components/Delta.svelte'
   import Demo from '../components/Demo.svelte'
   import type { Me } from '../lib/api'
   import { centerById, centers, friends, mine, MY_CENTER, players, type Scope } from '../lib/demo'
@@ -64,6 +65,7 @@
             <strong>{c.name}</strong>
             <span class="tag">{t('center.students', { n: c.students })}</span>
           </span>
+          <Delta n={c.delta} />
           <span class="num">{c.avg.toFixed(1)}</span>
         </button>
       </li>
@@ -80,6 +82,7 @@
           <strong>{p.nick}</strong>
           <span class="tag">{centerById(p.center).name}</span>
         </span>
+        <Delta n={p.delta} />
         <span class="num">{formatBand(p.band)}</span>
       </li>
     {/each}
@@ -90,7 +93,7 @@
     <Avatar name={me.nickname} />
     <span class="grow">
       <strong>{t('rating.you')}</strong>
-      <span class="tag">{t('rating.of', { n: mine.total[scope] })}</span>
+      <span class="tag">{t('rating.of', { n: mine.total[scope] })} <Delta n={mine.delta[scope]} /> {mine.delta[scope] ? t('delta.week') : ''}</span>
     </span>
     <span class="num">{formatBand(mine.band)}</span>
   </div>
@@ -124,7 +127,7 @@
   }
 
   .place.top {
-    color: #c98a00;
+    color: #d69a00;
   }
 
   .num {
