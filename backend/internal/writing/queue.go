@@ -38,9 +38,11 @@ func retryDelay(attempt int) time.Duration {
 
 // Queue — воркеры AI-проверок. Задания — строки writing_checks (DECISIONS 2026-11-16: своя таблица, без River).
 type Queue struct {
-	Store   *Store
-	AI      ai.Checker
-	Notify  Notifier // nil — бот выключен
+	Store  *Store
+	AI     ai.Checker
+	Notify Notifier // nil — бот выключен
+	// OnDone — проверка закрыта (готова или не удалась): Writing из mock пересчитывает mock.
+	OnDone  func(ctx context.Context, checkID int64)
 	Log     *slog.Logger
 	Workers int
 	Now     func() time.Time
@@ -190,6 +192,9 @@ func (q *Queue) close(ctx context.Context, j job, sql string, args ...any) (bool
 }
 
 func (q *Queue) notify(ctx context.Context, j job, band *float64) {
+	if q.OnDone != nil {
+		q.OnDone(ctx, j.id)
+	}
 	if q.Notify == nil {
 		return
 	}

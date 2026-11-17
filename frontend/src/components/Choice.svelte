@@ -1,8 +1,10 @@
 <script lang="ts">
-  import type { Q } from '../lib/demo-exam'
+  import type { Question } from '../lib/api'
 
-  // Вопрос с вариантами. checked — показать верный ответ и ошибку ученика.
-  let { n, q, value = $bindable(), checked = false }: { n: number; q: Q; value: number | null | undefined; checked?: boolean } = $props()
+  // Вопрос с вариантами. right — верный ответ (приходит после сдачи): показать его и ошибку ученика.
+  let { n, q, value = $bindable(), right }: { n: number; q: Question; value: number | null | undefined; right?: number } = $props()
+
+  const checked = $derived(right !== undefined)
 </script>
 
 <fieldset class="card">
@@ -13,8 +15,8 @@
         role="radio"
         aria-checked={value === i}
         class:on={value === i}
-        class:right={checked && i === q.answer}
-        class:wrong={checked && value === i && i !== q.answer}
+        class:right={checked && i === right}
+        class:wrong={checked && value === i && i !== right}
         disabled={checked}
         onclick={() => (value = i)}>{o}</button
       >

@@ -14,7 +14,7 @@ import (
 
 var (
 	ErrNotFound   = errors.New("не найдено")
-	ErrDailyLimit = errors.New("дневной лимит проверок исчерпан")
+	ErrDailyLimit = errors.New("лимит проверок исчерпан")
 )
 
 // Статусы проверки.
@@ -64,6 +64,7 @@ type Check struct {
 	Feedback   *Feedback
 	CreatedAt  time.Time
 	FinishedAt *time.Time
+	MockID     *int64
 }
 
 type NewCheck struct {
@@ -76,6 +77,7 @@ type NewCheck struct {
 	Source   string
 	Lang     string
 	Image    *ai.Image // фото задания Task 1
+	MockID   *int64    // Writing полного mock: в лимит не идёт, он оплачен самим mock
 }
 
 type Store struct {
@@ -105,10 +107,11 @@ func (s *Store) Prompt(ctx context.Context, id int64) (Prompt, error) {
 	return p, err
 }
 
-// Create ставит проверку в очередь, если у ученика не исчерпан лимит на день (dayStart — полночь по
-// Ташкенту). Неудавшиеся проверки в лимит не идут. Строка ученика блокируется на время транзакции:
-// две одновременные отправки не обойдут лимит.
-func (s *Store) Create(ctx context.Context, c NewCheck, limit int, dayStart, now time.Time) (int64, error) {
+// Create ставит проверку в очередь, если у ученика не исчерпан лимит: limit проверок с since (полночь по
+// Ташкенту или неделя назад — по тарифу, billing). Сверх лимита тратится бонусная проверка, если есть.
+// Неудавшиеся проверки и Writing из mock в лимит не идут. Строка ученика блокируется на время
+// транзакции: две одновременные отправки не обойдут лимит.
+func (s *Store) Create(ctx context.Context, c NewCheck, limit int, since, now time.Time) (int64, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return 0, err
@@ -118,19 +121,27 @@ func (s *Store) Create(ctx context.Context, c NewCheck, limit int, dayStart, now
 	if _, err := tx.Exec(ctx, `SELECT 1 FROM users WHERE id = $1 FOR UPDATE`, c.UserID); err != nil {
 		return 0, err
 	}
-	var used int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM writing_checks
-		WHERE user_id = $1 AND created_at >= $2 AND status <> 'failed'`, c.UserID, dayStart).Scan(&used); err != nil {
-		return 0, err
-	}
-	if used >= limit {
-		return 0, ErrDailyLimit
+	if c.MockID == nil {
+		var used int
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM writing_checks
+			WHERE user_id = $1 AND created_at >= $2 AND status <> 'failed' AND mock_id IS NULL`, c.UserID, since).Scan(&used); err != nil {
+			return 0, err
+		}
+		if used >= limit {
+			tag, err := tx.Exec(ctx, `UPDATE users SET bonus_checks = bonus_checks - 1 WHERE id = $1 AND bonus_checks > 0`, c.UserID)
+			if err != nil {
+				return 0, err
+			}
+			if tag.RowsAffected() == 0 {
+				return 0, ErrDailyLimit
+			}
+		}
 	}
 	var id int64
 	if err := tx.QueryRow(ctx, `INSERT INTO writing_checks
-		(user_id, task, prompt_id, prompt, essay, words, source, lang, run_after, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9) RETURNING id`,
-		c.UserID, c.Task, c.PromptID, c.Prompt, c.Essay, c.Words, c.Source, c.Lang, now).Scan(&id); err != nil {
+		(user_id, task, prompt_id, prompt, essay, words, source, lang, run_after, created_at, mock_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10) RETURNING id`,
+		c.UserID, c.Task, c.PromptID, c.Prompt, c.Essay, c.Words, c.Source, c.Lang, now, c.MockID).Scan(&id); err != nil {
 		return 0, err
 	}
 	if c.Image != nil {
@@ -149,20 +160,20 @@ func (s *Store) Create(ctx context.Context, c NewCheck, limit int, dayStart, now
 	return id, nil
 }
 
-// UsedToday — сколько проверок ученик уже потратил сегодня (для экрана «осталось N»).
-func (s *Store) UsedToday(ctx context.Context, userID int64, dayStart time.Time) (int, error) {
+// Used — сколько проверок ученик потратил с since (для экрана «осталось N»); Writing из mock не в счёт.
+func (s *Store) Used(ctx context.Context, userID int64, since time.Time) (int, error) {
 	var n int
 	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM writing_checks
-		WHERE user_id = $1 AND created_at >= $2 AND status <> 'failed'`, userID, dayStart).Scan(&n)
+		WHERE user_id = $1 AND created_at >= $2 AND status <> 'failed' AND mock_id IS NULL`, userID, since).Scan(&n)
 	return n, err
 }
 
-const checkCols = `id, user_id, task, prompt_id, prompt, words, source, lang, status, band, ta, cc, lr, gra, created_at, finished_at`
+const checkCols = `id, user_id, task, prompt_id, prompt, words, source, lang, status, band, ta, cc, lr, gra, created_at, finished_at, mock_id`
 
 func scanCheck(row pgx.Row, extra ...any) (Check, error) {
 	var c Check
 	err := row.Scan(append([]any{&c.ID, &c.UserID, &c.Task, &c.PromptID, &c.Prompt, &c.Words, &c.Source, &c.Lang,
-		&c.Status, &c.Band, &c.TA, &c.CC, &c.LR, &c.GRA, &c.CreatedAt, &c.FinishedAt}, extra...)...)
+		&c.Status, &c.Band, &c.TA, &c.CC, &c.LR, &c.GRA, &c.CreatedAt, &c.FinishedAt, &c.MockID}, extra...)...)
 	return c, err
 }
 

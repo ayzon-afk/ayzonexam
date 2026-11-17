@@ -31,7 +31,7 @@ func fakeTelegram(t *testing.T) (*Bot, *[]call) {
 		mu.Lock()
 		*calls = append(*calls, call{strings.TrimPrefix(r.URL.Path, "/bot"+fakeBot+"/"), body})
 		mu.Unlock()
-		io.WriteString(w, `{"ok":true,"result":true}`)
+		io.WriteString(w, `{"ok":true,"result":{"message_id":7,"username":"ayzon_test_bot"}}`)
 	}))
 	t.Cleanup(srv.Close)
 	b := New(fakeBot, "https://exam.example/app", slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -118,12 +118,20 @@ func TestSetupModes(t *testing.T) {
 	for _, c := range *calls {
 		methods = append(methods, c.method)
 	}
-	want := "setChatMenuButton deleteWebhook setChatMenuButton setWebhook"
+	setup := "getMe setChatMenuButton setMyCommands setMyCommands setMyCommands"
+	want := setup + " deleteWebhook " + setup + " setWebhook"
 	if strings.Join(methods, " ") != want {
 		t.Fatalf("вызовы %v, ждали %s", methods, want)
 	}
-	if (*calls)[3].body["secret_token"] != "s3cret-s3cret-s3cret-s3cret-s3cret" {
-		t.Fatalf("webhook без секрета: %v", (*calls)[3].body)
+	last := (*calls)[len(*calls)-1].body
+	if last["secret_token"] != "s3cret-s3cret-s3cret-s3cret-s3cret" {
+		t.Fatalf("webhook без секрета: %v", last)
+	}
+	if raw, _ := json.Marshal(last["allowed_updates"]); string(raw) != `["message","callback_query"]` {
+		t.Fatalf("бот должен получать и нажатия кнопок: %s", raw)
+	}
+	if b.Username() != "ayzon_test_bot" {
+		t.Fatalf("username из getMe: %q", b.Username())
 	}
 }
 
@@ -145,5 +153,71 @@ func TestWritingChecked(t *testing.T) {
 	}
 	if text := (*calls)[1].body["text"].(string); !strings.Contains(text, "limitga kirmaydi") {
 		t.Fatalf("неудача на узбекском: %q", text)
+	}
+}
+
+func TestStartParamOpensScreen(t *testing.T) {
+	b, calls := fakeTelegram(t)
+	b.Handle(context.Background(), msg("private", "/start d-abc123", "ru"))
+	body := (*calls)[0].body
+	raw, _ := json.Marshal(body["reply_markup"])
+	if !strings.Contains(string(raw), `https://exam.example/app?open=d-abc123`) || !strings.Contains(body["text"].(string), "дуэль") {
+		t.Fatalf("ссылка-приглашение на дуэль: %v %s", body, raw)
+	}
+}
+
+func TestOnUpdateTakesOver(t *testing.T) {
+	b, calls := fakeTelegram(t)
+	var got []Update
+	b.OnUpdate = func(_ context.Context, u Update) bool {
+		got = append(got, u)
+		return u.Message != nil && u.Message.Text == "/help"
+	}
+	b.Handle(context.Background(), msg("private", "/help", "ru"))
+	if len(*calls) != 0 || len(got) != 1 {
+		t.Fatalf("/help обрабатывает OnUpdate, бот молчит: %+v", *calls)
+	}
+	b.Handle(context.Background(), msg("private", "привет", "ru"))
+	if len(*calls) != 1 {
+		t.Fatalf("необработанное — кнопка запуска: %+v", *calls)
+	}
+	var cb Update
+	json.Unmarshal([]byte(`{"update_id":3,"callback_query":{"id":"q","from":{"id":1},"data":"pay:ok:5"}}`), &cb)
+	b.Handle(context.Background(), cb)
+	if len(got) != 3 || got[2].CallbackQuery.Data != "pay:ok:5" {
+		t.Fatalf("нажатие кнопки не дошло до OnUpdate: %+v", got)
+	}
+}
+
+func TestButtonsAndAdmins(t *testing.T) {
+	b, calls := fakeTelegram(t)
+	b.Admins = []int64{1, 2}
+	sent, err := b.ToAdmins(context.Background(), "оплата", nil, [][]Button{{{Text: "ok", Data: "pay:ok:1"}, {Text: "app", Open: "premium"}}})
+	if err != nil || len(sent) != 2 || sent[0].MessageID != 7 {
+		t.Fatalf("сообщения админам: %+v %v", sent, err)
+	}
+	raw, _ := json.Marshal((*calls)[0].body["reply_markup"])
+	if !strings.Contains(string(raw), `"callback_data":"pay:ok:1"`) || !strings.Contains(string(raw), `app?open=premium`) {
+		t.Fatalf("кнопки: %s", raw)
+	}
+	if err := b.ToUser(context.Background(), 5, "en", "duel.result", map[string]string{"nick": "ali", "score": "3:2"}, "-"); err != nil {
+		t.Fatal(err)
+	}
+	last := (*calls)[len(*calls)-1].body
+	if last["text"] != "Your duel with ali is over: 3:2." || last["reply_markup"] != nil {
+		t.Fatalf("сообщение ученику без кнопки: %v", last)
+	}
+}
+
+func TestTextsComplete(t *testing.T) {
+	for k, v := range texts {
+		for i, s := range v {
+			if strings.TrimSpace(s) == "" {
+				t.Errorf("%s: пустой текст на языке %d", k, i)
+			}
+		}
+	}
+	if T("de", "btn.open") != "Ochish" {
+		t.Fatal("неизвестный язык — узбекский")
 	}
 }

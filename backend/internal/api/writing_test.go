@@ -124,7 +124,7 @@ func TestWritingFlow(t *testing.T) {
 
 	r = do(t, h, "GET", "/api/writing/checks", auth, "")
 	checks, _ := r.body["checks"].([]any)
-	if r.code != 200 || len(checks) != 1 || r.body["used_today"] != 1.0 || r.body["daily_limit"] != 3.0 {
+	if r.code != 200 || len(checks) != 1 || r.body["used"] != 1.0 || r.body["limit"] != 3.0 || r.body["period"] != "day" {
 		t.Fatalf("история: %s", r.raw)
 	}
 	if strings.Contains(r.raw, "word word") || strings.Contains(r.raw, "feedback") {

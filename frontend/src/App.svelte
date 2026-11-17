@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { api, ApiError, initAuth, type Me } from './lib/api'
-  import { initTelegram, telegramLanguage } from './lib/telegram'
+  import { initTelegram, startParam, telegramLanguage } from './lib/telegram'
   import { langFromTelegram, ready, setLang, t } from './lib/i18n/index.svelte'
-  import { go, nav } from './lib/nav.svelte'
+  import { go, nav, routeFromOpen } from './lib/nav.svelte'
   import Loader from './components/Loader.svelte'
   import Logo from './components/Logo.svelte'
   import Onboarding from './screens/Onboarding.svelte'
@@ -15,9 +15,29 @@
   let me = $state<Me | null>(null)
   let noDict = $state(false)
 
-  // Кнопка бота «Открыть разбор» открывает приложение с ?check=<id>.
-  const checkParam = Number(new URLSearchParams(location.search).get('check'))
+  // Кнопка бота «Открыть разбор» открывает приложение с ?check=<id>; остальные кнопки и ссылки-приглашения —
+  // с ?open=… (bot.AppURL): r-<код> — друг, c-<код> — центр, d-<код> — дуэль, mock-<id>, premium, …
+  const params = new URLSearchParams(location.search)
+  const checkParam = Number(params.get('check'))
   const openCheck = Number.isInteger(checkParam) && checkParam > 0 ? checkParam : null
+  const open = params.get('open') || startParam()
+
+  // Ссылка-приглашение: друг или центр. Ошибка (чужой или старый код) не мешает открыть приложение.
+  async function invite(m: Me): Promise<Me> {
+    if (open.startsWith('r-')) await api.refer(open.slice(2)).catch(() => {})
+    if (open.startsWith('c-')) {
+      try {
+        m = await api.joinCenter(open.slice(2))
+        if (m.center) {
+          nav.tab = 'profile'
+          nav.stack = [{ s: 'center', id: m.center.id }]
+        }
+      } catch {
+        // неверный код — просто открыть приложение
+      }
+    }
+    return m
+  }
 
   async function load() {
     status = 'loading'
@@ -26,11 +46,15 @@
         status = 'outside'
         return
       }
-      me = await api.me()
+      me = await invite(await api.me())
       setLang(me.lang)
+      const target = open ? routeFromOpen(open) : null
       if (openCheck) {
         nav.tab = 'exams'
         nav.stack = [{ s: 'writingCheck', id: openCheck }]
+      } else if (target) {
+        nav.tab = target.tab
+        nav.stack = target.route ? [target.route] : []
       }
       status = 'ready'
     } catch (e) {

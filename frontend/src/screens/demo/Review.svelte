@@ -1,11 +1,11 @@
 <script lang="ts">
   import BandPicker from '../../components/BandPicker.svelte'
   import Head from '../../components/Head.svelte'
-  import { peerEssay } from '../../lib/demo-exam'
+  import { peerEssay } from '../../lib/demo'
   import { t } from '../../lib/i18n/index.svelte'
   import { haptic } from '../../lib/telegram'
 
-  // Взаимная проверка: оценил чужое эссе — получил бонусную проверку своего (SPEC).
+  // Р’Р·Р°РёРјРЅР°СЏ РїСЂРѕРІРµСЂРєР°: РѕС†РµРЅРёР» С‡СѓР¶РѕРµ СЌСЃСЃРµ вЂ” РїРѕР»СѓС‡РёР» Р±РѕРЅСѓСЃРЅСѓСЋ РїСЂРѕРІРµСЂРєСѓ СЃРІРѕРµРіРѕ (SPEC).
   let band = $state<number | null>(null)
   let comment = $state('')
   let sent = $state(false)
@@ -20,7 +20,7 @@
   </section>
 {:else}
   <article class="card stack">
-    <p class="tag">Task 2 · {t('review.anon')}</p>
+    <p class="tag">Task 2 В· {t('review.anon')}</p>
     <p class="essay">{peerEssay}</p>
   </article>
   <section class="card stack">

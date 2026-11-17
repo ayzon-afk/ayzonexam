@@ -1,10 +1,14 @@
 import { flushSync } from 'svelte'
+import type { Kind } from './api'
 
 // Навигация без роутера: вкладка и стопка экранов поверх неё. «Назад» снимает верхний экран,
 // нажатие на вкладку очищает стопку.
 
 export type Tab = 'home' | 'exams' | 'rating' | 'community' | 'profile'
-export type Part = 'reading' | 'listening' | 'level'
+export type Part = Kind
+
+// Откуда начинается задание: практика, часть mock или часть турнира.
+export type TestSource = { test: number } | { mock: number; kind: 'listening' | 'reading' } | { tour: 'listening' | 'reading' }
 
 export type Route =
   | { s: 'writingNew' }
@@ -13,16 +17,26 @@ export type Route =
   | { s: 'post'; id: number }
   | { s: 'tournament' }
   | { s: 'center'; id: number }
+  | { s: 'centers' }
+  | { s: 'centerRequests' }
   | { s: 'practice'; part: Part }
+  | { s: 'test'; from: TestSource }
+  | { s: 'attempt'; id: number }
   | { s: 'speaking' }
+  | { s: 'speakingCheck'; id: number }
   | { s: 'mock' }
-  | { s: 'report' }
-  | { s: 'duel' }
+  | { s: 'mockWriting'; id: number }
+  | { s: 'mockSpeaking'; id: number }
+  | { s: 'report'; id: number }
+  | { s: 'duel'; code?: string }
+  | { s: 'friends' }
   | { s: 'teacher' }
   | { s: 'review' }
   | { s: 'group'; id: number }
   | { s: 'premium' }
   | { s: 'history' }
+  | { s: 'support' }
+  | { s: 'admin' }
 
 export const nav = $state<{ tab: Tab; stack: Route[] }>({ tab: 'home', stack: [] })
 
@@ -64,4 +78,31 @@ export function openTab(tab: Tab) {
     nav.tab = tab
     nav.stack = []
   })
+}
+
+// Экран по параметру ?open=… из кнопки бота или ссылки-приглашения (bot.AppURL).
+export function routeFromOpen(open: string): { tab: Tab; route?: Route } | null {
+  const dash = open.indexOf('-')
+  const kind = dash < 0 ? open : open.slice(0, dash)
+  const rest = dash < 0 ? '' : open.slice(dash + 1)
+  const id = Number(rest)
+  const num = Number.isInteger(id) && id > 0
+  switch (kind) {
+    case 'premium':
+      return { tab: 'profile', route: { s: 'premium' } }
+    case 'friends':
+      return { tab: 'rating', route: { s: 'friends' } }
+    case 'support':
+      return { tab: 'profile', route: { s: 'support' } }
+    case 'center':
+      return { tab: 'profile', route: { s: 'centerRequests' } }
+    case 'mock':
+      return num ? { tab: 'exams', route: { s: 'report', id } } : { tab: 'exams', route: { s: 'mock' } }
+    case 'speaking':
+      return num ? { tab: 'exams', route: { s: 'speakingCheck', id } } : { tab: 'exams', route: { s: 'speaking' } }
+    case 'duel':
+    case 'd':
+      return rest ? { tab: 'rating', route: { s: 'duel', code: rest } } : { tab: 'rating', route: { s: 'duel' } }
+  }
+  return null
 }

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="{{.Lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>AYZON EXAM · {{index .T "title"}}</title>
+<style>
+  :root { --bg: #fff; --text: #0f1b2d; --hint: #6b7a90; --card: #f2f7fc; --accent: #1d8fe1; --line: #dbe6f1; --danger: #d33a3a; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0b0b0d; --text: #f3f4f6; --hint: #9aa3af; --card: #17171b; --accent: #e5383b; --line: #2a2a30; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 480px; margin: 0 auto; padding: 20px 16px 40px; display: grid; gap: 14px; }
+  h1 { font-size: 22px; margin: 4px 0; }
+  .brand { font-weight: 800; letter-spacing: .02em; color: var(--accent); }
+  .card { background: var(--card); border-radius: 16px; padding: 14px 16px; display: grid; gap: 8px; }
+  .hint { color: var(--hint); font-size: 14px; margin: 0; }
+  label.plan { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+  label.plan:has(input:checked) { border-color: var(--accent); }
+  .plan b { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+  .big { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; word-break: break-all; }
+  button, .btn { appearance: none; border: 0; border-radius: 12px; background: var(--accent); color: #fff; font: inherit; font-weight: 600; padding: 12px 16px; cursor: pointer; text-align: center; text-decoration: none; }
+  button.copy { background: transparent; color: var(--accent); padding: 6px 8px; font-size: 14px; }
+  input[type=file] { font: inherit; width: 100%; }
+  img.preview { max-width: 100%; max-height: 240px; border-radius: 12px; display: none; }
+  .error { color: var(--danger); }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; color: #fff; background: #2e9d58; border-radius: 999px; padding: 1px 8px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">AYZON EXAM</div>
+  <h1>{{index .T "title"}}</h1>
+
+  {{if eq .State "form"}}
+  <p class="hint">{{index .T "steps"}}</p>
+  <form method="post" enctype="multipart/form-data" action="?t={{.Token}}" class="card" id="f">
+    <strong>{{index .T "plan"}}</strong>
+    {{range .Plans}}
+    <label class="plan"><input type="radio" name="plan" value="{{.ID}}" {{if .Checked}}checked{{end}}> {{.Name}}
+      {{if and $.Discount (eq .ID "month")}}<span class="badge">−30%</span>{{end}}
+      <b>{{.Amount}} {{index $.T "sum"}}</b></label>
+    {{end}}
+    {{if .Discount}}<p class="hint">{{index .T "discount"}}</p>{{end}}
+
+    <div class="row"><span class="hint">{{index .T "card"}}</span><button type="button" class="copy" data-copy="{{.Card}}">{{index .T "copy"}}</button></div>
+    <div class="big">{{.Card}}</div>
+    {{if .Holder}}<p class="hint">{{index .T "holder"}}: {{.Holder}}</p>{{end}}
+
+    <div class="row"><span class="hint">{{index .T "code"}}</span><button type="button" class="copy" data-copy="{{.Code}}">{{index .T "copy"}}</button></div>
+    <div class="big">{{.Code}}</div>
+    <p class="hint">{{index .T "codeHint"}}</p>
+
+    <strong>{{index .T "shot"}}</strong>
+    <input type="file" name="screenshot" accept="image/jpeg,image/png,image/webp" required id="shot">
+    <img class="preview" id="preview" alt="">
+    {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+    <p class="hint">{{if .Instant}}{{index .T "instant"}}{{else}}{{index .T "later"}}{{end}}</p>
+    <button type="submit" id="go">{{index .T "submit"}}</button>
+  </form>
+  <script>
+    document.querySelectorAll('[data-copy]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var t = b.getAttribute('data-copy'), label = b.textContent;
+        (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () {
+          b.textContent = {{index .T "copied"}};
+          setTimeout(function () { b.textContent = label; }, 1500);
+        }).catch(function () {});
+      });
+    });
+    var shot = document.getElementById('shot'), prev = document.getElementById('preview');
+    shot.addEventListener('change', function () {
+      if (shot.files && shot.files[0]) { prev.src = URL.createObjectURL(shot.files[0]); prev.style.display = 'block'; }
+    });
+    document.getElementById('f').addEventListener('submit', function () { document.getElementById('go').disabled = true; });
+  </script>
+  {{else}}
+  <div class="card">
+    <p>{{index .T .State}}</p>
+  </div>
+  {{if .App}}<a class="btn" href="{{.App}}">{{index .T "back"}}</a>{{end}}
+  {{end}}
+</main>
+</body>
+</html>

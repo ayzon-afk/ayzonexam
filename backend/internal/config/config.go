@@ -37,9 +37,18 @@ type Config struct {
 
 	GeminiAPIKey      string // пусто — проверки заглушкой (ai.Fake), только не на боевом сервере
 	GeminiModel       string
-	WritingDailyLimit int // проверок Writing в день на ученика, пока нет тарифов (этап 6)
-	WritingWorkers    int // сколько проверок идёт одновременно
+	GeminiTTSModel    string // синтез речи для Listening
+	WritingDailyLimit int    // проверок Writing в день с Premium; без него — 2 в неделю (billing)
+	WritingWorkers    int    // сколько проверок Writing идёт одновременно
+	SpeakingWorkers   int    // сколько проверок Speaking идёт одновременно
+
+	Admins      []int64 // ADMIN_IDS: Telegram id владельца и помощников через запятую — вход в админку
+	PayCard     string  // PAY_CARD: номер карты для переводов; пусто — оплата недоступна
+	PayCardName string  // PAY_CARD_NAME: получатель
 }
+
+// DefaultTTSModel — модель озвучки сценариев Listening, если GEMINI_TTS_MODEL не задан.
+const DefaultTTSModel = "gemini-2.5-flash-preview-tts"
 
 // FromEnv собирает и проверяет настройки. Ошибка называет переменную, которую надо поправить.
 func FromEnv() (Config, error) {
@@ -55,12 +64,28 @@ func FromEnv() (Config, error) {
 		DevAuth:       os.Getenv("DEV_AUTH") == "1",
 		GeminiAPIKey:  os.Getenv("GEMINI_API_KEY"),
 		GeminiModel:   env("GEMINI_MODEL", DefaultGeminiModel),
+		PayCard:       strings.TrimSpace(os.Getenv("PAY_CARD")),
+		PayCardName:   strings.TrimSpace(os.Getenv("PAY_CARD_NAME")),
+	}
+	c.GeminiTTSModel = env("GEMINI_TTS_MODEL", DefaultTTSModel)
+	for _, f := range strings.Split(os.Getenv("ADMIN_IDS"), ",") {
+		if f = strings.TrimSpace(f); f == "" {
+			continue
+		}
+		id, err := strconv.ParseInt(f, 10, 64)
+		if err != nil || id <= 0 {
+			return c, fmt.Errorf("ADMIN_IDS=%q: нужны Telegram id через запятую", os.Getenv("ADMIN_IDS"))
+		}
+		c.Admins = append(c.Admins, id)
 	}
 	var err error
 	if c.WritingDailyLimit, err = envInt("WRITING_DAILY_LIMIT", 3, 1, 100); err != nil {
 		return c, err
 	}
 	if c.WritingWorkers, err = envInt("WRITING_WORKERS", 3, 1, 20); err != nil {
+		return c, err
+	}
+	if c.SpeakingWorkers, err = envInt("SPEAKING_WORKERS", 2, 1, 20); err != nil {
 		return c, err
 	}
 	return c, c.validate()

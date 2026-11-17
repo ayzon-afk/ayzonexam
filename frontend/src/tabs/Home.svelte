@@ -1,33 +1,43 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import Avatar from '../components/Avatar.svelte'
   import Countdown from '../components/Countdown.svelte'
-  import Demo from '../components/Demo.svelte'
   import Icon, { type IconName } from '../components/Icon.svelte'
   import NewsList from '../components/NewsList.svelte'
-  import type { Me } from '../lib/api'
+  import { api, type Me, type Post, type Stats, type Winner } from '../lib/api'
   import { fmtDate } from '../lib/date'
-  import { centerById, mine, news, nextTournament, winners } from '../lib/demo'
   import { daysUntil, formatBand } from '../lib/exam'
   import { t, type Key } from '../lib/i18n/index.svelte'
   import { go, type Route } from '../lib/nav.svelte'
+  import { TOUR_HOURS, tourStart } from '../lib/tournament'
 
   let { me }: { me: Me } = $props()
 
+  let stats = $state<Stats | null>(null)
+  let champ = $state<Winner | null>(null)
+  let news = $state<Post[] | null>(null)
+
   const days = $derived(me.exam_date ? daysUntil(me.exam_date, new Date()) : null)
-  const tour = nextTournament(new Date())
-  const champ = winners[0]!
+  const tour = tourStart(new Date())
+  const live = Date.now() >= tour.getTime() && Date.now() < tour.getTime() + TOUR_HOURS * 3_600_000
 
-  // Путь к цели: от 4.0 до цели, где сейчас текущий балл (пока демо — настоящий даст mock).
-  const left = $derived(me.goal_band === null ? null : me.goal_band - mine.band)
-  const progress = $derived(me.goal_band === null ? 0 : Math.min(1, Math.max(0.04, (mine.band - 4) / (me.goal_band - 4))))
+  // Путь к цели: от 4.0 до цели, где сейчас текущий балл (таймерные попытки за 60 дней).
+  const band = $derived(stats?.current ?? null)
+  const left = $derived(me.goal_band === null || band === null ? null : me.goal_band - band)
+  const progress = $derived(me.goal_band === null || band === null ? 0 : Math.min(1, Math.max(0.04, (band - 4) / (me.goal_band - 4))))
 
-  // Быстрый старт: Writing настоящий, остальное — демо-экраны этапа 12.
   const quick: { name: string; hint: Key; icon: IconName; r: Route }[] = [
     { name: 'Writing', hint: 'quick.writing', icon: 'pen', r: { s: 'writingNew' } },
     { name: 'Reading', hint: 'quick.reading', icon: 'book', r: { s: 'practice', part: 'reading' } },
     { name: 'Listening', hint: 'quick.listening', icon: 'headphones', r: { s: 'practice', part: 'listening' } },
     { name: 'Speaking', hint: 'quick.speaking', icon: 'mic', r: { s: 'speaking' } },
   ]
+
+  onMount(() => {
+    api.stats().then((s) => (stats = s), () => {})
+    api.tournament().then((r) => (champ = r.winners[0] ?? null), () => {})
+    api.news(3).then((r) => (news = r.posts), () => (news = []))
+  })
 </script>
 
 <h1>{t('home.greeting', { name: me.first_name || me.nickname })}</h1>
@@ -35,8 +45,8 @@
 <div class="card goal">
   <div class="ends">
     <div>
-      <p class="hint">{t('profile.current')} <Demo /></p>
-      <p class="band">{formatBand(mine.band)}</p>
+      <p class="hint">{t('profile.current')}</p>
+      <p class="band">{band === null ? '—' : formatBand(band)}</p>
     </div>
     <div class="right">
       <p class="hint">{t('home.goal')}</p>
@@ -48,8 +58,10 @@
   </div>
   <p class="days">
     <strong>
-      {#if left === null}
+      {#if me.goal_band === null}
         {t('goal.none')}
+      {:else if left === null}
+        {t('goal.noBand')}
       {:else if left <= 0}
         {t('goal.reached')}
       {:else}
@@ -69,21 +81,23 @@
 </div>
 
 <button class="card tour" onclick={() => go({ s: 'tournament' })}>
-  <span class="kicker">{t('tour.title')} <Demo /></span>
+  <span class="kicker">{t('tour.title')}</span>
   <strong>{fmtDate(tour, true)}</strong>
-  <span class="left"><Countdown to={tour} /></span>
-  <span class="btn btn-small">{t('tour.join')}</span>
+  <span class="left">{#if live}{t('tour.live')}{:else}<Countdown to={tour} />{/if}</span>
+  <span class="btn btn-small">{live ? t('tour.go') : t('tour.join')}</span>
 </button>
 
-<button class="card champ" onclick={() => go({ s: 'center', id: champ.center })}>
-  <Avatar name={champ.nick} size={48} />
-  <span class="grow">
-    <span class="tag">{t('champ.title')}</span>
-    <strong>{champ.nick}</strong>
-    <span class="tag">{centerById(champ.center).name}</span>
-  </span>
-  <span class="num big">{formatBand(champ.band)}</span>
-</button>
+{#if champ}
+  <button class="card champ" onclick={() => go({ s: 'tournament' })}>
+    <Avatar name={champ.nickname} size={48} />
+    <span class="grow">
+      <span class="tag">{t('champ.title')}</span>
+      <strong>{champ.nickname}</strong>
+      {#if champ.center}<span class="tag">{champ.center}</span>{/if}
+    </span>
+    <span class="num big">{formatBand(champ.band)}</span>
+  </button>
+{/if}
 
 <div class="sect"><h2>{t('quick.title')}</h2></div>
 <div class="tiles">
@@ -107,10 +121,10 @@
 </div>
 
 <div class="sect">
-  <h2>{t('news.title')} <Demo /></h2>
+  <h2>{t('news.title')}</h2>
   <button class="more" onclick={() => go({ s: 'news' })}>{t('more')}</button>
 </div>
-<NewsList items={news.slice(0, 3)} />
+{#if news}<NewsList items={news} />{/if}
 
 <style>
   h1 {
@@ -188,11 +202,6 @@
     margin-top: 4px;
     background: #fff;
     color: #111;
-  }
-
-  .tour :global(.demo) {
-    border-color: currentColor;
-    color: inherit;
   }
 
   .champ {

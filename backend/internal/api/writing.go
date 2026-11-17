@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"ayzonexam/internal/ai"
+	"ayzonexam/internal/billing"
 	"ayzonexam/internal/users"
 	"ayzonexam/internal/writing"
 )
@@ -27,10 +28,7 @@ const (
 )
 
 // dayStart — полночь сегодняшнего дня по Ташкенту: дневные лимиты считаются от неё.
-func (s *server) dayStart() time.Time {
-	n := s.Now().In(tashkent)
-	return time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, tashkent)
-}
+func (s *server) dayStart() time.Time { return billing.DayStart(s.Now()) }
 
 func (s *server) writingPrompts(w http.ResponseWriter, r *http.Request, _ users.User) {
 	task := r.URL.Query().Get("task")
@@ -217,7 +215,8 @@ func (s *server) createCheck(w http.ResponseWriter, r *http.Request, u users.Use
 		return
 	}
 
-	id, err := s.Writing.Create(r.Context(), c, s.WritingDailyLimit, s.dayStart(), s.Now())
+	q := billing.WritingQuota(billing.Of(u, s.Now()), s.WritingDailyLimit, s.Now())
+	id, err := s.Writing.Create(r.Context(), c, q.Limit, q.Since, s.Now())
 	if errors.Is(err, writing.ErrDailyLimit) {
 		writeError(w, http.StatusTooManyRequests, "daily_limit")
 		return
@@ -270,7 +269,8 @@ func (s *server) listChecks(w http.ResponseWriter, r *http.Request, u users.User
 		s.fail(w, r, err)
 		return
 	}
-	used, err := s.Writing.UsedToday(r.Context(), u.ID, s.dayStart())
+	q := billing.WritingQuota(billing.Of(u, s.Now()), s.WritingDailyLimit, s.Now())
+	used, err := s.Writing.Used(r.Context(), u.ID, q.Since)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -279,7 +279,7 @@ func (s *server) listChecks(w http.ResponseWriter, r *http.Request, u users.User
 	for _, c := range list {
 		out = append(out, toSummary(c))
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"checks": out, "used_today": used, "daily_limit": s.WritingDailyLimit})
+	writeJSON(w, http.StatusOK, map[string]any{"checks": out, "used": used, "limit": q.Limit, "period": q.Period, "bonus": u.BonusChecks})
 }
 
 func (s *server) getCheck(w http.ResponseWriter, r *http.Request, u users.User) {

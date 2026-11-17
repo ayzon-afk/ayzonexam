@@ -1,17 +1,20 @@
 <script lang="ts">
   import Avatar from '../components/Avatar.svelte'
   import Delta from '../components/Delta.svelte'
-  import Demo from '../components/Demo.svelte'
-  import type { Me } from '../lib/api'
-  import { centerById, centers, friends, mine, MY_CENTER, players, type Scope } from '../lib/demo'
+  import Skeleton from '../components/Skeleton.svelte'
+  import { api, type Board, type CenterRow, type Me, type Scope } from '../lib/api'
   import { formatBand } from '../lib/exam'
   import { t, type Key } from '../lib/i18n/index.svelte'
   import { go } from '../lib/nav.svelte'
   import { haptic } from '../lib/telegram'
 
+  // Рейтинг по реальным баллам таймерных попыток за 60 дней: Ташкент, мой центр, друзья, страна, центры.
   let { me }: { me: Me } = $props()
 
   let scope = $state<Scope | 'centers'>('city')
+  let board = $state<Board | null>(null)
+  let centers = $state<CenterRow[] | null>(null)
+  let failed = $state(false)
 
   const scopes: { id: Scope | 'centers'; label: Key }[] = [
     { id: 'city', label: 'rating.city' },
@@ -21,16 +24,22 @@
     { id: 'centers', label: 'rating.centers' },
   ]
 
-  const list = $derived(
-    scope === 'center'
-      ? players.filter((p) => p.center === MY_CENTER)
-      : scope === 'friends'
-        ? players.filter((p) => friends.includes(p.nick))
-        : players,
-  )
+  // Своё место — снизу, если его нет среди первых строк.
+  const showMine = $derived(board?.mine && !board.rows.some((r) => r.me))
+
+  $effect(() => {
+    const s = scope
+    failed = false
+    board = null
+    if (s === 'centers') {
+      api.centerRating().then((r) => (centers = r.centers), () => (failed = true))
+    } else {
+      api.rating(s).then((b) => scope === s && (board = b), () => (failed = true))
+    }
+  })
 </script>
 
-<h1>{t('tab.rating')} <Demo /></h1>
+<h1>{t('tab.rating')}</h1>
 
 <button class="card duel" onclick={() => go({ s: 'duel' })}>
   <span class="grow">
@@ -54,49 +63,78 @@
   {/each}
 </div>
 
-{#if scope === 'centers'}
-  <ol class="card rows">
-    {#each centers as c, i (c.id)}
-      <li>
-        <button class="row" onclick={() => go({ s: 'center', id: c.id })}>
-          <span class="place" class:top={i < 3}>{i + 1}</span>
-          <Avatar name={c.name} />
-          <span class="grow">
-            <strong>{c.name}</strong>
-            <span class="tag">{t('center.students', { n: c.students })}</span>
-          </span>
-          <Delta n={c.delta} />
-          <span class="num">{c.avg.toFixed(1)}</span>
-        </button>
-      </li>
-    {/each}
-  </ol>
+{#if failed}
+  <p class="error">{t('app.error')}</p>
+{:else if scope === 'centers'}
+  {#if !centers}
+    <Skeleton rows={4} />
+  {:else if centers.length === 0}
+    <p class="card hint">{t('rating.noCenters')}</p>
+  {:else}
+    <ol class="card rows">
+      {#each centers as c (c.id)}
+        <li>
+          <button class="row" onclick={() => go({ s: 'center', id: c.id })}>
+            <span class="place" class:top={c.place <= 3}>{c.place}</span>
+            <Avatar name={c.name} />
+            <span class="grow">
+              <strong>{c.name}</strong>
+              <span class="tag">{t('center.students', { n: c.students })}</span>
+            </span>
+            <Delta n={c.delta} />
+            <span class="num">{c.avg.toFixed(1)}</span>
+          </button>
+        </li>
+      {/each}
+    </ol>
+  {/if}
   <p class="hint">{t('rating.centersRule')}</p>
+{:else if scope === 'center' && me.center?.status !== 'member'}
+  <section class="card stack">
+    <p>{me.center?.status === 'pending' ? t('center.waiting', { name: me.center.name }) : t('rating.noCenter')}</p>
+    <button class="btn btn-plain" onclick={() => go({ s: 'centers' })}>{t('center.choose')}</button>
+  </section>
+{:else if !board}
+  <Skeleton rows={5} />
 {:else}
-  <ol class="card rows">
-    {#each list as p, i (p.nick)}
-      <li class="row">
-        <span class="place" class:top={i < 3}>{i + 1}</span>
-        <Avatar name={p.nick} />
-        <span class="grow">
-          <strong>{p.nick}</strong>
-          <span class="tag">{centerById(p.center).name}</span>
-        </span>
-        <Delta n={p.delta} />
-        <span class="num">{formatBand(p.band)}</span>
-      </li>
-    {/each}
-  </ol>
+  {#if board.rows.length === 0}
+    <p class="card hint">{scope === 'friends' ? t('rating.noFriends') : t('rating.empty')}</p>
+  {:else}
+    <ol class="card rows">
+      {#each board.rows as p (p.place + p.nickname)}
+        <li class="row" class:me={p.me}>
+          <span class="place" class:top={p.place <= 3}>{p.place}</span>
+          <Avatar name={p.nickname} />
+          <span class="grow">
+            <strong>{p.me ? t('rating.you') : p.nickname}</strong>
+            {#if p.center}<span class="tag">{p.center}</span>{/if}
+          </span>
+          <Delta n={p.delta} />
+          <span class="num">{formatBand(p.band)}</span>
+        </li>
+      {/each}
+    </ol>
+  {/if}
 
-  <div class="card row mine">
-    <span class="place">{mine.place[scope]}</span>
-    <Avatar name={me.nickname} />
-    <span class="grow">
-      <strong>{t('rating.you')}</strong>
-      <span class="tag">{t('rating.of', { n: mine.total[scope] })} <Delta n={mine.delta[scope]} /> {mine.delta[scope] ? t('delta.week') : ''}</span>
-    </span>
-    <span class="num">{formatBand(mine.band)}</span>
-  </div>
+  {#if showMine && board.mine}
+    <div class="card row mine">
+      <span class="place">{board.mine.place}</span>
+      <Avatar name={me.nickname} />
+      <span class="grow">
+        <strong>{t('rating.you')}</strong>
+        <span class="tag">{t('rating.of', { n: board.total })} <Delta n={board.mine.delta} /> {board.mine.delta ? t('delta.week') : ''}</span>
+      </span>
+      <span class="num">{formatBand(board.mine.band)}</span>
+    </div>
+  {:else if !board.mine}
+    <button class="card row" onclick={() => go({ s: 'practice', part: 'reading' })}>
+      <span class="grow">{t('rating.notIn')}</span>
+      <span class="chev" aria-hidden="true">›</span>
+    </button>
+  {/if}
+  {#if scope === 'friends'}
+    <button class="btn btn-plain" onclick={() => go({ s: 'friends' })}>{t('friends.title')}</button>
+  {/if}
   <p class="hint">{t('rating.rule')}</p>
 {/if}
 
@@ -132,6 +170,10 @@
 
   .num {
     font-size: 18px;
+  }
+
+  li.me {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
   }
 
   .mine {

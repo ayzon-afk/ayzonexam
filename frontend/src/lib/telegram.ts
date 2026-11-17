@@ -16,6 +16,7 @@ interface WebApp {
   colorScheme?: 'light' | 'dark'
   onEvent?(event: string, cb: () => void): void
   openTelegramLink?(url: string): void
+  openLink?(url: string): void
   setHeaderColor?(color: string): void
   setBackgroundColor?(color: string): void
   setBottomBarColor?(color: string): void
@@ -84,6 +85,17 @@ export function openTelegramLink(url: string): boolean {
   if (!inTelegram() || !tg?.openTelegramLink) return false
   tg.openTelegramLink(url)
   return true
+}
+
+// Внешняя страница (оплата на сайте) — в браузере телефона, приложение остаётся открытым.
+export function openExternal(url: string) {
+  if (inTelegram() && tg?.openLink) tg.openLink(url)
+  else window.open(url, '_blank', 'noopener')
+}
+
+// Параметр запуска из ссылки t.me/<бот>/app?startapp=… (на будущее: прямые ссылки на Mini App).
+export function startParam(): string {
+  return (tg?.initDataUnsafe as { start_param?: string } | undefined)?.start_param ?? ''
 }
 
 export function telegramLanguage(): string | undefined {

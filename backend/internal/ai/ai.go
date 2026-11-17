@@ -52,6 +52,10 @@ type Checker interface {
 	// Recognize переписывает рукописный текст с фото как есть, не исправляя ошибок.
 	Recognize(ctx context.Context, pages []Image) (string, error)
 	GradeWriting(ctx context.Context, req WritingRequest) (WritingResult, error)
+	// GradeSpeaking слушает записи ответов и оценивает их (этап 4).
+	GradeSpeaking(ctx context.Context, req SpeakingRequest) (SpeakingResult, error)
+	// Speak озвучивает сценарий Listening («Имя: реплика» по строкам) и отдаёт WAV.
+	Speak(ctx context.Context, script string) ([]byte, error)
 	Model() string
 }
 

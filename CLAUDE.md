@@ -12,14 +12,20 @@ Telegram Mini App для подготовки к IELTS: mock-экзамены, A
 
 ## Устройство
 
-- `backend/` — Go, один бинарник: API Mini App, бот, собранный интерфейс (если задан `WEB_DIR`).
-  - `internal/tgauth` — проверка initData; `internal/api` — HTTP; `internal/users` — ученики;
-    `internal/bot` — Bot API напрямую по HTTP; `internal/db` — пул и миграции.
-  - `cmd/server` — сервер, `cmd/devdb` — встроенный PostgreSQL для разработки.
-- `frontend/` — Svelte 5 + Vite, SPA без роутера: `screens/` (онбординг, оболочка с вкладками, Writing),
-  `screens/demo/` (экраны этапа 12 на демо-данных, грузятся при переходе), `tabs/`, `components/`, `lib/`
-  (API, Telegram, i18n, навигация `nav.svelte.ts`, баллы и даты, демо-данные `demo.ts` и `demo-exam.ts`).
-  Этап подключает экран к серверу — убирает его данные из `lib/demo*.ts` и пометку `<Demo />`.
+- `backend/` — Go, один бинарник: API Mini App, бот, страница оплаты `/pay`, собранный интерфейс (если
+  задан `WEB_DIR`).
+  - `internal/api` — HTTP и логика бота (`HandleUpdate`), админка `/api/admin/*`; `internal/tgauth` —
+    проверка initData; `internal/users` — ученики; `internal/bot` — только Bot API (транспорт, тексты);
+    `internal/db` — пул и миграции.
+  - Домены: `writing`, `speaking` (очереди AI), `exam` (задания, баллы, mock), `rating` (рейтинг, центры,
+    турнир), `social` (друзья, дуэли), `billing` (тарифы, лимиты, оплаты), `news`, `support`; `ai` —
+    Gemini и заглушка `Fake`.
+  - `cmd/server` — сервер, `cmd/devdb` — встроенный PostgreSQL для разработки, `cmd/calibrate`.
+- `frontend/` — Svelte 5 + Vite, SPA без роутера: `screens/` (онбординг, оболочка, экраны поверх вкладок
+  по папкам `exam`, `mock`, `speaking`, `social`, `center`, `news`, `writing`, `admin`), `screens/demo/`
+  (ещё не подключённое: группы, учитель, взаимная проверка), `tabs/`, `components/`, `lib/` (API,
+  Telegram, i18n, навигация `nav.svelte.ts`, запись голоса, турнир, демо-данные `demo.ts`).
+  Этап подключает экран к серверу — убирает его данные из `lib/demo.ts` и пометку `<Demo />`.
 - Схема — только миграциями `backend/internal/db/migrations/NNNN_*.sql`; старые не редактировать.
 
 ## Команды (из корня)
@@ -42,6 +48,9 @@ Telegram Mini App для подготовки к IELTS: mock-экзамены, A
 - Правила баллов и дат одинаковые на сервере (`api.validBand`, проверка `exam_date` по Ташкенту) и в
   интерфейсе (`lib/exam.ts`). Меняется одно — меняется и другое.
 - Тексты интерфейса — только через `t('ключ')`; ключ добавляется сразу в uz, ru и en (тест сверяет).
+  Исключение — админка (`screens/admin/`): только по-русски, для владельца (DECISIONS 2026-11-17).
+- Тексты бота — `internal/bot/texts.go`, тоже uz, ru и en.
+- Админ-маршрут — только через `s.admin(...)` и с записью в журнал (`s.audit`).
 - Бюджет: первый экран (входной JS со статическими импортами и словарь одного языка) — меньше 60 КБ gzip,
   проверяет `npm test`. Новый экран поверх вкладок — через ленивую загрузку в `Shell`. Перед тяжёлой
   библиотекой — искать лёгкую или писать своё.
@@ -53,3 +62,7 @@ Telegram Mini App для подготовки к IELTS: mock-экзамены, A
 - Ошибки `net/http` содержат адрес запроса, а в адресе Bot API — токен: `bot.call` отдаёт ошибку без адреса.
 - `DEV_AUTH=1` открывает вход без Telegram; `config` запрещает его вместе с `BOT_MODE=webhook`.
 - svelte-check пока не работает с TypeScript 7 — во `frontend` стоит TypeScript 6.
+- Порты встроенной базы тестов — ниже 49152 (25431+): Windows резервирует диапазоны выше
+  (`netsh int ipv4 show excludedportrange protocol=tcp`). Упавший тест может оставить свою базу
+  (`ayzonexam-pg…` во временных файлах) — следующий запуск пишет «already listening».
+- Правила рейтинга и турнира одинаковые на сервере и в интерфейсе: `rating.TourStart` ↔ `lib/tournament.ts`.

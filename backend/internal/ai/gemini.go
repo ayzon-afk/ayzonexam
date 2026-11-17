@@ -21,14 +21,18 @@ type Gemini struct {
 	model   string
 	apiBase string
 	client  *http.Client
+
+	// TTSModel — модель синтеза речи для Listening (GEMINI_TTS_MODEL).
+	TTSModel string
 }
 
 func NewGemini(key, model string) *Gemini {
 	return &Gemini{
-		key:     key,
-		model:   model,
-		apiBase: "https://generativelanguage.googleapis.com/v1beta",
-		client:  &http.Client{Timeout: 100 * time.Second},
+		key:      key,
+		model:    model,
+		apiBase:  "https://generativelanguage.googleapis.com/v1beta",
+		client:   &http.Client{Timeout: 100 * time.Second},
+		TTSModel: "gemini-2.5-flash-preview-tts",
 	}
 }
 
@@ -73,14 +77,31 @@ type generateResponse struct {
 
 // generate отправляет запрос и возвращает текст ответа (без «мыслей» модели).
 func (g *Gemini) generate(ctx context.Context, req generateRequest) (string, error) {
-	body, err := json.Marshal(req)
+	c, err := g.call(ctx, g.model, req)
 	if err != nil {
 		return "", err
 	}
-	hr, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		g.apiBase+"/models/"+url.PathEscape(g.model)+":generateContent", bytes.NewReader(body))
+	var sb strings.Builder
+	for _, p := range c.Parts {
+		if !p.Thought {
+			sb.WriteString(p.Text)
+		}
+	}
+	return sb.String(), nil
+}
+
+func b64(d []byte) string { return base64.StdEncoding.EncodeToString(d) }
+
+// call — один вызов generateContent; ответ — содержимое первого кандидата.
+func (g *Gemini) call(ctx context.Context, model string, req generateRequest) (content, error) {
+	body, err := json.Marshal(req)
 	if err != nil {
-		return "", errors.New("gemini: запрос не собран")
+		return content{}, err
+	}
+	hr, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		g.apiBase+"/models/"+url.PathEscape(model)+":generateContent", bytes.NewReader(body))
+	if err != nil {
+		return content{}, errors.New("gemini: запрос не собран")
 	}
 	hr.Header.Set("Content-Type", "application/json")
 	hr.Header.Set("x-goog-api-key", g.key)
@@ -90,36 +111,30 @@ func (g *Gemini) generate(ctx context.Context, req generateRequest) (string, err
 		if errors.As(err, &ue) {
 			err = ue.Err
 		}
-		return "", fmt.Errorf("gemini: %w", err)
+		return content{}, fmt.Errorf("gemini: %w", err)
 	}
 	defer res.Body.Close()
 	var r generateResponse
 	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
-		return "", fmt.Errorf("gemini: ответ %d не JSON", res.StatusCode)
+		return content{}, fmt.Errorf("gemini: ответ %d не JSON", res.StatusCode)
 	}
 	if r.Error != nil || res.StatusCode != http.StatusOK {
 		if r.Error == nil {
-			return "", fmt.Errorf("gemini: ответ %d", res.StatusCode)
+			return content{}, fmt.Errorf("gemini: ответ %d", res.StatusCode)
 		}
-		return "", fmt.Errorf("gemini: %d %s: %s", r.Error.Code, r.Error.Status, r.Error.Message)
+		return content{}, fmt.Errorf("gemini: %d %s: %s", r.Error.Code, r.Error.Status, r.Error.Message)
 	}
 	if r.PromptFeedback != nil && r.PromptFeedback.BlockReason != "" {
-		return "", fmt.Errorf("gemini: запрос заблокирован (%s)", r.PromptFeedback.BlockReason)
+		return content{}, fmt.Errorf("gemini: запрос заблокирован (%s)", r.PromptFeedback.BlockReason)
 	}
 	if len(r.Candidates) == 0 {
-		return "", errors.New("gemini: пустой ответ")
+		return content{}, errors.New("gemini: пустой ответ")
 	}
 	c := r.Candidates[0]
 	if c.FinishReason != "STOP" {
-		return "", fmt.Errorf("gemini: ответ оборван (%s)", c.FinishReason)
+		return content{}, fmt.Errorf("gemini: ответ оборван (%s)", c.FinishReason)
 	}
-	var sb strings.Builder
-	for _, p := range c.Content.Parts {
-		if !p.Thought {
-			sb.WriteString(p.Text)
-		}
-	}
-	return sb.String(), nil
+	return c.Content, nil
 }
 
 // ListModels — модели, доступные ключу, которые умеют generateContent. Для cmd/calibrate.

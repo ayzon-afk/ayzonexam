@@ -20,7 +20,7 @@ import (
 var pool *pgxpool.Pool
 
 func TestMain(m *testing.M) {
-	os.Exit(testpg.Run(54372, func(p *pgxpool.Pool) int {
+	os.Exit(testpg.Run(25432, func(p *pgxpool.Pool) int {
 		pool = p
 		return m.Run()
 	}))
@@ -171,10 +171,11 @@ func TestUsage(t *testing.T) {
 
 // stubAI отвечает заданными ошибками по очереди, потом — результатом.
 type stubAI struct {
-	mu    sync.Mutex
-	errs  []error
-	calls int
-	last  ai.WritingRequest
+	ai.Fake // Speaking и озвучка — заглушкой: тест про Writing
+	mu      sync.Mutex
+	errs    []error
+	calls   int
+	last    ai.WritingRequest
 }
 
 func (s *stubAI) Model() string { return "stub" }
@@ -339,7 +340,7 @@ func TestQueueShutdownReturnsJob(t *testing.T) {
 	id := create(t, s, u, Task2, nil)
 	ctx, cancel := context.WithCancel(t.Context())
 	clock := now
-	q := newQueue(s, cancelAI{cancel}, nil, &clock)
+	q := newQueue(s, cancelAI{cancel: cancel}, nil, &clock)
 	if _, err := q.Step(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +353,10 @@ func TestQueueShutdownReturnsJob(t *testing.T) {
 }
 
 // cancelAI имитирует остановку сервера посреди вызова AI.
-type cancelAI struct{ cancel context.CancelFunc }
+type cancelAI struct {
+	ai.Fake
+	cancel context.CancelFunc
+}
 
 func (cancelAI) Model() string                                         { return "cancel" }
 func (cancelAI) Recognize(context.Context, []ai.Image) (string, error) { return "", nil }

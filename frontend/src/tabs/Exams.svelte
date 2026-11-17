@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import Demo from '../components/Demo.svelte'
   import Icon, { type IconName } from '../components/Icon.svelte'
   import Skeleton from '../components/Skeleton.svelte'
   import { api, type History } from '../lib/api'
@@ -12,7 +11,7 @@
   const onnew = () => go({ s: 'writingNew' })
   const onopen = (id: number) => go({ s: 'writingCheck', id })
 
-  // Практика по частям — демо-экраны этапа 12; Writing ниже — настоящий.
+  // Практика по частям: короткие сеты с таймером; Writing ниже — со своей историей.
   const parts: { name: string; hint: Key; icon: IconName; r: Route }[] = [
     { name: 'Reading', hint: 'quick.reading', icon: 'book', r: { s: 'practice', part: 'reading' } },
     { name: 'Listening', hint: 'quick.listening', icon: 'headphones', r: { s: 'practice', part: 'listening' } },
@@ -23,12 +22,12 @@
   let failed = $state(false)
   const hasDraft = loadDraft() !== null
 
-  const left = $derived(history ? Math.max(history.daily_limit - history.used_today, 0) : null)
+  const left = $derived(history ? Math.max(history.limit - history.used, 0) : null)
 
   async function load() {
     failed = false
     try {
-      history = await api.history()
+      history = await api.checks()
     } catch {
       failed = true
     }
@@ -46,19 +45,19 @@
 <button class="card level" onclick={() => go({ s: 'practice', part: 'level' })}>
   <span class="ico"><Icon name="target" /></span>
   <span class="grow">
-    <strong>{t('level.title')} <Demo /></strong>
+    <strong>{t('level.title')}</strong>
     <span class="tag">{t('level.lead')}</span>
   </span>
   <span class="chev" aria-hidden="true">›</span>
 </button>
 
 <section class="card mock">
-  <h2><span class="ico inline"><Icon name="timer" size={20} /></span> {t('mock.title')} <Demo /></h2>
+  <h2><span class="ico inline"><Icon name="timer" size={20} /></span> {t('mock.title')}</h2>
   <p class="hint">{t('mock.lead')}</p>
   <button class="btn" onclick={() => go({ s: 'mock' })}>{t('mock.open')}</button>
 </section>
 
-<div class="sect"><h2>{t('exams.parts')} <Demo /></h2></div>
+<div class="sect"><h2>{t('exams.parts')}</h2></div>
 <div class="parts">
   {#each parts as p (p.name)}
     <button class="card part" onclick={() => go(p.r)}>
@@ -74,8 +73,12 @@
   <p class="hint">{t('writing.lead')}</p>
   {#if left !== null && history}
     <p class="left">
-      {left > 0 ? t('writing.left', { n: left, limit: history.daily_limit }) : t('writing.limitReached')}
+      {left > 0 ? t(history.period === 'day' ? 'quota.day' : 'quota.week', { n: left, limit: history.limit }) : t('writing.limitReached')}
+      {#if history.bonus > 0}· {t('quota.bonus', { n: history.bonus })}{/if}
     </p>
+    {#if left === 0 && history.period === 'week'}
+      <button class="btn btn-plain" onclick={() => go({ s: 'premium' })}>{t('premium.go')}</button>
+    {/if}
   {/if}
   <button class="btn" onclick={onnew}>{hasDraft ? t('writing.continue') : t('writing.new')}</button>
 </section>
@@ -116,7 +119,7 @@
 
 <button class="card row history" onclick={() => go({ s: 'history' })}>
   <Icon name="history" />
-  <span class="grow">{t('history.title')} <Demo /></span>
+  <span class="grow">{t('history.title')}</span>
   <span class="chev" aria-hidden="true">›</span>
 </button>
 

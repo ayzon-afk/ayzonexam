@@ -31,14 +31,15 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testpg.Run(54371, func(p *pgxpool.Pool) int {
+	os.Exit(testpg.Run(25431, func(p *pgxpool.Pool) int {
 		pool = p
 		return m.Run()
 	}))
 }
 
-func newHandler(t *testing.T, d Deps) http.Handler {
+func newHandler(t *testing.T, d Deps) *Server {
 	t.Helper()
+	d.DB = pool
 	d.Users = users.NewStore(pool)
 	d.Writing = writing.NewStore(pool)
 	if d.AI == nil {
@@ -48,7 +49,9 @@ func newHandler(t *testing.T, d Deps) http.Handler {
 		d.WritingDailyLimit = 3
 	}
 	d.BotToken = fakeBot
-	d.Now = func() time.Time { return now }
+	if d.Now == nil {
+		d.Now = func() time.Time { return now }
+	}
 	return New(d)
 }
 
@@ -182,7 +185,11 @@ func TestPatchValidation(t *testing.T) {
 		{"дата через 3 года", `{"exam_date":"2029-11-15"}`, "bad_exam_date"},
 		{"дата не дата", `{"exam_date":"завтра"}`, "bad_exam_date"},
 		{"дата числом", `{"exam_date":20261220}`, "bad_exam_date"},
-		{"лишнее поле", `{"nickname":"admin"}`, "bad_json"},
+		{"лишнее поле", `{"telegram_id":1}`, "bad_json"},
+		{"ник короткий", `{"nickname":"ab"}`, "bad_nickname"},
+		{"ник с пробелом", `{"nickname":"a b c"}`, "bad_nickname"},
+		{"ник как по умолчанию", `{"nickname":"user77"}`, "bad_nickname"},
+		{"город", `{"city":"london"}`, "bad_city"},
 		{"не JSON", `{`, "bad_json"},
 		{"слишком большое тело", `{"lang":"` + strings.Repeat("a", 5000) + `"}`, "bad_json"},
 	}

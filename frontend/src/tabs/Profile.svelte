@@ -1,10 +1,9 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import BandPicker from '../components/BandPicker.svelte'
   import Chart from '../components/Chart.svelte'
-  import Delta from '../components/Delta.svelte'
-  import Demo from '../components/Demo.svelte'
-  import { api, ApiError, type Me } from '../lib/api'
-  import { badges, centerById, mine, MY_CENTER } from '../lib/demo'
+  import { api, ApiError, type Me, type Stats } from '../lib/api'
+  import { fmtDate } from '../lib/date'
   import { examDateRange, formatBand } from '../lib/exam'
   import { LANGS, setLang, t, type Key, type Lang } from '../lib/i18n/index.svelte'
   import { go } from '../lib/nav.svelte'
@@ -12,6 +11,50 @@
   import { applyTheme, loadTheme, type Theme } from '../lib/theme'
 
   let { me, onchange, onlogout }: { me: Me; onchange: (me: Me) => void; onlogout: () => void } = $props()
+
+  let stats = $state<Stats | null>(null)
+  onMount(() => {
+    api.stats().then(
+      (s) => (stats = s),
+      () => {},
+    )
+  })
+
+  const badges: { id: string; title: Key }[] = [
+    { id: 'first6', title: 'badge.first6' },
+    { id: 'first7', title: 'badge.first7' },
+    { id: 'duel10', title: 'badge.duel10' },
+    { id: 'tour', title: 'badge.tour' },
+    { id: 'mock10', title: 'badge.mock10' },
+    { id: 'essay100', title: 'badge.essay100' },
+  ]
+
+  // Ник — публичное имя в рейтинге: a–z, 0–9, «_» и «.», 3–20 знаков (как api.validNick).
+  let nick = $state('')
+  let nickEdit = $state(false)
+  let nickError = $state<Key | ''>('')
+  async function saveNick() {
+    nickError = ''
+    try {
+      onchange(await api.updateMe({ nickname: nick }))
+      nickEdit = false
+      haptic.success()
+    } catch (e) {
+      haptic.error()
+      const code = e instanceof ApiError ? e.code : ''
+      nickError = code === 'nick_taken' ? 'nick.taken' : code === 'bad_nickname' ? 'nick.bad' : 'app.error'
+    }
+  }
+
+  async function setCity(city: 'tashkent' | 'other') {
+    if (city === me.city) return
+    haptic.select()
+    try {
+      onchange(await api.updateMe({ city }))
+    } catch {
+      status = 'error'
+    }
+  }
 
   const telegram = inTelegram()
   let theme = $state<Theme>(loadTheme())
@@ -77,32 +120,45 @@
   {:else}
     <div class="avatar" aria-hidden="true">{(me.first_name || me.nickname).slice(0, 1).toUpperCase()}</div>
   {/if}
-  <div>
+  <div class="grow">
     <h1>{me.first_name || me.nickname}</h1>
-    <p class="hint">@{me.nickname}</p>
+    {#if nickEdit}
+      <div class="nick">
+        <input bind:value={nick} maxlength="20" autocapitalize="off" autocomplete="off" />
+        <button class="btn btn-small" onclick={saveNick}>{t('profile.save')}</button>
+      </div>
+      <p class="hint">{nickError ? t(nickError) : t('nick.hint')}</p>
+    {:else}
+      <button class="hint" onclick={() => ((nick = me.nickname), (nickEdit = true))}>{me.nickname} ✎</button>
+    {/if}
   </div>
 </div>
 
 <section class="card">
   <div class="stats">
     <div>
-      <p class="hint">{t('profile.current')} <Demo /></p>
-      <p class="num big">{formatBand(mine.band)}</p>
-      <p class="tag"><Delta n={0.5} band /> {t('delta.month')}</p>
+      <p class="hint">{t('profile.current')}</p>
+      <p class="num big">{stats?.current == null ? '—' : formatBand(stats.current)}</p>
+      {#if stats?.place}<p class="tag">{t('profile.place', { n: stats.place })}</p>{/if}
     </div>
     <div>
       <p class="hint">{t('home.goal')}</p>
       <p class="num big">{me.goal_band === null ? '—' : formatBand(me.goal_band)}</p>
     </div>
   </div>
-  <Chart points={mine.progress} />
+  {#if stats && stats.progress.length >= 2}
+    <Chart points={stats.progress} />
+  {:else}
+    <p class="hint">{t('profile.noProgress')}</p>
+  {/if}
+  <button class="more" onclick={() => go({ s: 'history' })}>{t('history.title')} ›</button>
 </section>
 
 <section class="card">
-  <h2>{t('profile.badges')} <Demo /></h2>
+  <h2>{t('profile.badges')}</h2>
   <ul class="badges">
-    {#each badges as b (b.title)}
-      <li class:off={!b.got}>
+    {#each badges as b (b.id)}
+      <li class:off={!stats?.badges[b.id]}>
         <span class="medal" aria-hidden="true">★</span>
         <span>{t(b.title)}</span>
       </li>
@@ -112,26 +168,43 @@
 
 <ul class="card rows">
   <li>
-    <button class="row" onclick={() => go({ s: 'center', id: MY_CENTER })}>
-      <span class="grow">{t('profile.center')} <Demo /></span>
-      <span class="hint">{centerById(MY_CENTER).name}</span>
+    <button class="row" onclick={() => go(me.center?.status === 'member' ? { s: 'center', id: me.center.id } : { s: 'centers' })}>
+      <span class="grow">{t('profile.center')}</span>
+      <span class="hint">{me.center ? me.center.name + (me.center.status === 'pending' ? ' ⏳' : '') : t('center.choose')}</span>
+      <span class="chev" aria-hidden="true">›</span>
+    </button>
+  </li>
+  {#if me.center?.status === 'member' && me.center.role}
+    <li>
+      <button class="row" onclick={() => go({ s: 'centerRequests' })}>
+        <span class="grow">{t('center.requests')}</span>
+        <span class="chev" aria-hidden="true">›</span>
+      </button>
+    </li>
+  {/if}
+  <li>
+    <button class="row" onclick={() => go({ s: 'premium' })}>
+      <span class="grow">Premium</span>
+      <span class="hint">{me.plan?.premium && me.plan.until ? t('premium.until', { date: fmtDate(me.plan.until) }) : t('premium.off')}</span>
       <span class="chev" aria-hidden="true">›</span>
     </button>
   </li>
   <li>
-    <button class="row" onclick={() => go({ s: 'premium' })}>
-      <span class="grow">Premium <Demo /></span>
-      <span class="chev" aria-hidden="true">›</span>
-    </button>
-  </li>
-  <li>
-    <button class="row" onclick={() => go({ s: 'premium' })}>
-      <span class="grow">{t('profile.friends')} <Demo /></span>
-      <span class="hint">{t('premium.invited', { n: mine.invited })}</span>
+    <button class="row" onclick={() => go({ s: 'friends' })}>
+      <span class="grow">{t('profile.friends')}</span>
+      <span class="hint">{t('premium.invited', { n: stats?.invited ?? 0 })}</span>
       <span class="chev" aria-hidden="true">›</span>
     </button>
   </li>
 </ul>
+
+<section class="card">
+  <h2>{t('profile.city')}</h2>
+  <div class="langs two" role="radiogroup">
+    <button role="radio" aria-checked={me.city === 'tashkent'} class:on={me.city === 'tashkent'} onclick={() => setCity('tashkent')}>{t('rating.city')}</button>
+    <button role="radio" aria-checked={me.city === 'other'} class:on={me.city === 'other'} onclick={() => setCity('other')}>{t('city.other')}</button>
+  </div>
+</section>
 
 <section class="card">
   <h2>{t('profile.goal')}</h2>
@@ -169,6 +242,23 @@
   </div>
 </section>
 
+<ul class="card rows">
+  {#if me.admin}
+    <li>
+      <button class="row" onclick={() => go({ s: 'admin' })}>
+        <span class="grow">{t('profile.admin')}</span>
+        <span class="chev" aria-hidden="true">›</span>
+      </button>
+    </li>
+  {/if}
+  <li>
+    <button class="row" onclick={() => go({ s: 'support' })}>
+      <span class="grow">{t('support.title')}</span>
+      <span class="chev" aria-hidden="true">›</span>
+    </button>
+  </li>
+</ul>
+
 {#if telegram}
   <button class="btn btn-plain out" onclick={closeApp}>{t('logout.close')}</button>
 {:else if confirmOut}
@@ -190,6 +280,24 @@
     display: flex;
     align-items: center;
     gap: 12px;
+  }
+
+  .nick {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .nick input {
+    flex: 1;
+    min-width: 0;
+    min-height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--separator);
+    border-radius: 10px;
+    background: var(--section);
+    color: var(--text);
+    font: inherit;
   }
 
   img,

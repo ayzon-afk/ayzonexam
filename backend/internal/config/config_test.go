@@ -68,3 +68,19 @@ func TestWritingSettings(t *testing.T) {
 		t.Fatalf("не число должно быть ошибкой: %v", err)
 	}
 }
+
+func TestAdminsAndPayment(t *testing.T) {
+	t.Setenv("DATABASE_URL", "x")
+	t.Setenv("DEV_AUTH", "1")
+	t.Setenv("BOT_MODE", "off")
+	t.Setenv("ADMIN_IDS", " 111, 222 ")
+	t.Setenv("PAY_CARD", " 8600 0000 ")
+	c, err := FromEnv()
+	if err != nil || len(c.Admins) != 2 || c.Admins[1] != 222 || c.PayCard != "8600 0000" || c.GeminiTTSModel != DefaultTTSModel {
+		t.Fatalf("админы и карта: %+v %v", c, err)
+	}
+	t.Setenv("ADMIN_IDS", "111,@owner")
+	if _, err := FromEnv(); err == nil || !strings.Contains(err.Error(), "ADMIN_IDS") {
+		t.Fatalf("ник вместо id — ошибка: %v", err)
+	}
+}

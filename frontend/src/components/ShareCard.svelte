@@ -6,14 +6,14 @@
   import { haptic } from '../lib/telegram'
 
   // Карточка для сторис и чатов: большой результат на фирменном градиенте и кнопка «Поделиться».
-  // text — что уйдёт в сообщение вместе со ссылкой на приложение.
-  let { big, title, sub = '', text }: { big: string; title: string; sub?: string; text: string } = $props()
+  // text — что уйдёт в сообщение вместе со ссылкой (url — по умолчанию адрес приложения).
+  let { big, title, sub = '', text, url }: { big: string; title: string; sub?: string; text: string; url?: string } = $props()
 
   let result = $state<Shared | null>(null)
 
   async function onshare() {
     haptic.select()
-    result = await share(text)
+    result = await share(text, url)
   }
 </script>
 

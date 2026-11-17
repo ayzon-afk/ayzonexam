@@ -16,6 +16,7 @@ import (
 	"ayzonexam/internal/bot"
 	"ayzonexam/internal/config"
 	"ayzonexam/internal/db"
+	"ayzonexam/internal/speaking"
 	"ayzonexam/internal/users"
 	"ayzonexam/internal/writing"
 )
@@ -48,13 +49,16 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
-	var checker ai.Checker = ai.NewGemini(cfg.GeminiAPIKey, cfg.GeminiModel)
+	gemini := ai.NewGemini(cfg.GeminiAPIKey, cfg.GeminiModel)
+	gemini.TTSModel = cfg.GeminiTTSModel
+	var checker ai.Checker = gemini
 	if cfg.GeminiAPIKey == "" {
 		checker = ai.Fake{}
-		log.Warn("GEMINI_API_KEY не задан: проверки Writing идут заглушкой")
+		log.Warn("GEMINI_API_KEY не задан: проверки Writing и Speaking идут заглушкой")
 	}
 	store := writing.NewStore(pool)
 	deps := api.Deps{
+		DB:                pool,
 		Users:             users.NewStore(pool),
 		Writing:           store,
 		AI:                checker,
@@ -62,11 +66,16 @@ func run(log *slog.Logger) error {
 		BotToken:          cfg.BotToken,
 		DevAuth:           cfg.DevAuth,
 		WebDir:            cfg.WebDir,
+		Admins:            cfg.Admins,
+		PayCard:           cfg.PayCard,
+		PayCardName:       cfg.PayCardName,
 		Log:               log,
 	}
 	queue := &writing.Queue{Store: store, AI: checker, Log: log, Workers: cfg.WritingWorkers, Now: time.Now}
+	var b *bot.Bot
 	if cfg.BotMode != config.BotOff {
-		b := bot.New(cfg.BotToken, cfg.WebAppURL, log)
+		b = bot.New(cfg.BotToken, cfg.WebAppURL, log)
+		b.Admins = cfg.Admins
 		queue.Notify = b
 		webhook := ""
 		if cfg.BotMode == config.BotWebhook {
@@ -77,23 +86,41 @@ func run(log *slog.Logger) error {
 		if err := b.Setup(ctx, webhook, cfg.WebhookSecret); err != nil {
 			log.Warn("бот не настроен", "err", err)
 		}
-		if cfg.BotMode == config.BotPolling {
-			go b.RunPolling(ctx)
-		}
+		deps.Msg = b
+		deps.BotUsername = b.Username()
 	}
 	if cfg.DevAuth {
 		log.Warn("DEV_AUTH=1: вход без Telegram открыт — только для локальной разработки")
 	}
+	if len(cfg.Admins) == 0 {
+		log.Warn("ADMIN_IDS не задан: админка закрыта для всех")
+	}
+
+	app := api.New(deps)
+	// Проверка из mock готова — mock пересчитывается и, если все части сданы, закрывается.
+	queue.OnDone = func(ctx context.Context, id int64) { app.AfterCheck(ctx, "writing_checks", id) }
+	speak := &speaking.Queue{Store: app.Speaking(), AI: checker, Log: log, Workers: cfg.SpeakingWorkers, Now: time.Now,
+		OnDone: func(ctx context.Context, id int64) { app.AfterCheck(ctx, "speaking_checks", id) }}
+	if b != nil {
+		speak.Notify = b
+		b.OnUpdate = app.HandleUpdate
+		if cfg.BotMode == config.BotPolling {
+			go b.RunPolling(ctx)
+		}
+	}
 
 	queueDone := make(chan struct{})
 	go func() { queue.Run(ctx); close(queueDone) }()
+	speakDone := make(chan struct{})
+	go func() { speak.Run(ctx); close(speakDone) }()
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           api.New(deps),
+		Handler:           app,
 		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		IdleTimeout:       120 * time.Second,
+		// Записи Speaking mock — до трёх файлов по 3 МБ с мобильного интернета.
+		ReadTimeout: 2 * time.Minute,
+		IdleTimeout: 120 * time.Second,
 	}
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
@@ -103,6 +130,7 @@ func run(log *slog.Logger) error {
 	case err := <-errc:
 		stop()
 		<-queueDone
+		<-speakDone
 		return err
 	case <-ctx.Done():
 	}
@@ -111,6 +139,7 @@ func run(log *slog.Logger) error {
 	err = srv.Shutdown(shutdownCtx)
 	// Воркеры возвращают незаконченные проверки в очередь — дождаться, пока база ещё открыта.
 	<-queueDone
+	<-speakDone
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}

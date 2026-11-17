@@ -19,20 +19,30 @@
 
   // Экраны поверх вкладок грузятся при первом открытии: телефон не качает то, куда ученик не заходил.
   const screens: Record<string, Lazy> = {
-    news: () => import('./demo/News.svelte'),
-    post: () => import('./demo/Post.svelte'),
-    tournament: () => import('./demo/Tournament.svelte'),
-    center: () => import('./demo/Center.svelte'),
-    practice: () => import('./demo/Practice.svelte'),
-    speaking: () => import('./demo/Speaking.svelte'),
-    mock: () => import('./demo/Mock.svelte'),
-    report: () => import('./demo/Report.svelte'),
-    duel: () => import('./demo/Duel.svelte'),
+    news: () => import('./news/News.svelte'),
+    post: () => import('./news/Post.svelte'),
+    tournament: () => import('./Tournament.svelte'),
+    center: () => import('./center/Center.svelte'),
+    centers: () => import('./center/Centers.svelte'),
+    centerRequests: () => import('./center/Requests.svelte'),
+    practice: () => import('./exam/Practice.svelte'),
+    test: () => import('./exam/Test.svelte'),
+    attempt: () => import('./exam/Attempt.svelte'),
+    speaking: () => import('./speaking/Speaking.svelte'),
+    speakingCheck: () => import('./speaking/Result.svelte'),
+    mock: () => import('./mock/Mock.svelte'),
+    mockWriting: () => import('./mock/Writing.svelte'),
+    mockSpeaking: () => import('./mock/Speaking.svelte'),
+    report: () => import('./mock/Report.svelte'),
+    duel: () => import('./social/Duel.svelte'),
+    friends: () => import('./social/Friends.svelte'),
     teacher: () => import('./demo/Teacher.svelte'),
     review: () => import('./demo/Review.svelte'),
     group: () => import('./demo/Group.svelte'),
-    premium: () => import('./demo/Premium.svelte'),
-    history: () => import('./demo/History.svelte'),
+    premium: () => import('./Premium.svelte'),
+    history: () => import('./History.svelte'),
+    support: () => import('./Support.svelte'),
+    admin: () => import('./admin/Admin.svelte'),
   }
 
   // Загруженные экраны — сразу из памяти: переход не показывает заготовку и идёт плавно.
@@ -41,10 +51,10 @@
     return screens[s]!().then((m) => (loaded[s] = m.default))
   }
 
-  // Через пару секунд после открытия — подгрузить все экраны заранее (~15 КБ): первый экран не ждёт их,
-  // а переходы потом мгновенные. Неудача не страшна — экран загрузится при нажатии.
+  // Через пару секунд после открытия — подгрузить экраны заранее: первый экран не ждёт их, а переходы
+  // потом мгновенные. Админку ученики не качают. Неудача не страшна — экран загрузится при нажатии.
   onMount(() => {
-    const id = setTimeout(() => Object.keys(screens).forEach((s) => load(s).catch(() => {})), 2000)
+    const id = setTimeout(() => Object.keys(screens).forEach((s) => (s !== 'admin' || me.admin) && load(s).catch(() => {})), 2000)
     return () => clearTimeout(id)
   })
 
@@ -74,7 +84,7 @@
     {:else if loaded[top.s]}
       {@const Screen = loaded[top.s]}
       {#key top}
-        <Screen r={top} {me} />
+        <Screen r={top} {me} {onchange} />
       {/key}
     {:else}
       {#await load(top.s)}

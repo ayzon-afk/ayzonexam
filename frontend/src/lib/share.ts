@@ -2,10 +2,14 @@ import { openTelegramLink } from './telegram'
 
 export type Shared = 'shared' | 'copied' | 'failed'
 
-// Поделиться результатом: в Telegram — выбор чата, в браузере — системное «Поделиться», иначе — копия
-// в буфер. Ссылка пока на адрес приложения; с этапа 7 — на бота (t.me/…?startapp), DECISIONS.
-export async function share(text: string): Promise<Shared> {
-  const url = location.origin
+// Ссылка-приглашение: через бота (t.me/<бот>?start=…) — бот откроет приложение на нужном экране
+// (?open=…, bot.Greet). Бота нет (локально) — адрес приложения с тем же параметром.
+export function inviteLink(bot: string, param: string): string {
+  return bot ? `https://t.me/${bot}?start=${encodeURIComponent(param)}` : `${location.origin}/?open=${encodeURIComponent(param)}`
+}
+
+// Поделиться: в Telegram — выбор чата, в браузере — системное «Поделиться», иначе — копия в буфер.
+export async function share(text: string, url = location.origin): Promise<Shared> {
   if (openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`)) return 'shared'
   if (navigator.share) {
     try {
