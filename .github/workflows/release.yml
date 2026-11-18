@@ -1,0 +1,49 @@
+# Образы для сервера (этап 7): сервер с интерфейсом и служба копий. Собираются только после зелёного CI на
+# main (или вручную) и кладутся в реестр GitHub: ghcr.io/ayzon-afk/ayzon-exam[-backup]:latest и :sha-<7 знаков>
+name: Образы для сервера
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  images:
+    name: Образ ${{ matrix.name }}
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      matrix:
+        include:
+          - name: ayzon-exam
+            context: .
+            file: deploy/Dockerfile
+          - name: ayzon-exam-backup
+            context: deploy/backup
+            file: deploy/backup/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - id: version
+        run: echo "sha=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: true
+          tags: |
+            ghcr.io/ayzon-afk/${{ matrix.name }}:latest
+            ghcr.io/ayzon-afk/${{ matrix.name }}:sha-${{ steps.version.outputs.sha }}

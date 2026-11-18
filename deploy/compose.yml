@@ -1,0 +1,111 @@
+# Сервер AYZON EXAM (этап 7) — рядом с ayzonstock на том же сервере. Запуск из папки deploy:
+#   ./make-env.sh <поддомен> && docker compose up -d
+# HTTPS даёт Caddy ayzonstock (порты 80/443 у него): блок поддомена — в README, «Сервер».
+# Память всего проекта — 512 МБ (DECISIONS 2026-11-15): база 240, сервер 192, копии 80.
+#
+# Сети:
+#   exam-db    (внутренняя) база ↔ сервер и служба копий; служба копий отсюда же проверяет сервер
+#   ayzon-web  сеть ayzonstock: Caddy → сервер; через неё сервер ходит в Telegram и Gemini
+#   exam-out   выход службы копий в интернет (R2, сообщения владельцу)
+name: ayzon-exam
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '3'
+
+x-pg: &pg
+  PGHOST: ayzon-exam-db
+  PGUSER: ayzonexam
+  PGPASSWORD: ${POSTGRES_PASSWORD:?задайте в deploy/.env}
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: ayzon-exam-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ayzonexam
+      POSTGRES_DB: ayzonexam
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?задайте в deploy/.env}
+      # UTF-8 явно: узбекская кириллица; пароль и для входа изнутри контейнера
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C.UTF-8 --auth-local=scram-sha-256 --auth-host=scram-sha-256
+    # Маленькая база: пул сервера — 10 соединений, остальное — запас для копий и psql
+    command: [postgres, -c, shared_buffers=64MB, -c, effective_cache_size=160MB, -c, work_mem=4MB,
+              -c, maintenance_work_mem=32MB, -c, max_connections=30]
+    shm_size: 64mb
+    mem_limit: 240m
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    networks: [db]
+    healthcheck:
+      test: [CMD, pg_isready, -U, ayzonexam, -d, ayzonexam]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+
+  app:
+    image: ${APP_IMAGE:-ghcr.io/ayzon-afk/ayzon-exam:latest}
+    container_name: ayzon-exam-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://ayzonexam:${POSTGRES_PASSWORD}@ayzon-exam-db:5432/ayzonexam
+      BOT_TOKEN: ${BOT_TOKEN:?задайте в deploy/.env}
+      BOT_MODE: ${BOT_MODE:-webhook}
+      WEBAPP_URL: https://${EXAM_DOMAIN:?задайте в deploy/.env}
+      PUBLIC_URL: https://${EXAM_DOMAIN}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:?задайте в deploy/.env}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      ADMIN_IDS: ${ADMIN_IDS:?задайте в deploy/.env}
+      PAY_CARD: ${PAY_CARD:-}
+      PAY_CARD_NAME: ${PAY_CARD_NAME:-}
+      WRITING_DAILY_LIMIT: ${WRITING_DAILY_LIMIT:-3}
+      # Сборщик мусора Go начинает экономить заранее, до потолка контейнера
+      GOMEMLIMIT: 150MiB
+    mem_limit: 192m
+    networks: [db, web]
+    logging: *logging
+
+  backup:
+    image: ${BACKUP_IMAGE:-ghcr.io/ayzon-afk/ayzon-exam-backup:latest}
+    container_name: ayzon-exam-backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      <<: *pg
+      # Ночная копия — по Ташкенту; вне сервера — R2 (пусто — копии только на сервере)
+      BACKUP_TIME: ${BACKUP_TIME:-03:00}
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_BUCKET: ${R2_BUCKET:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      # Сообщения владельцу: сервер не отвечает, копия не сделана
+      BOT_TOKEN: ${BOT_TOKEN}
+      ADMIN_IDS: ${ADMIN_IDS}
+    volumes:
+      - backups:/backups
+    mem_limit: 80m
+    networks: [db, out]
+    logging: *logging
+
+networks:
+  db:
+    name: exam-db
+    internal: true
+  web:
+    name: ayzon-web
+    external: true
+  out:
+    name: exam-out
+
+volumes:
+  pg-data:
+  backups:

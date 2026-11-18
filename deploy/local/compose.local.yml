@@ -1,0 +1,23 @@
+# Репетиция сервера на компьютере (Docker Desktop): образы собираются из исходников (пути — от папки deploy), сети ayzonstock нет —
+# создаётся своя, сервер открыт на localhost:8088. Из папки deploy:
+#   docker compose -f compose.yml -f local/compose.local.yml --env-file local/.env up -d --build
+services:
+  app:
+    image: ayzon-exam:local
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    environment:
+      # Без бота: Telegram не знает о localhost
+      BOT_MODE: 'off'
+    ports:
+      - '127.0.0.1:8088:8080'
+  backup:
+    image: ayzon-exam-backup:local
+    build:
+      context: ./backup
+
+networks:
+  web:
+    name: exam-local-web
+    external: false
