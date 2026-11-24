@@ -30,6 +30,10 @@ func (s *Server) HandleUpdate(ctx context.Context, u bot.Update) bool {
 	if s.Msg == nil {
 		return false
 	}
+	if c := u.CallbackQuery; c != nil && strings.HasPrefix(c.Data, "dq:") {
+		s.dailyCallback(ctx, c)
+		return true
+	}
 	if c := u.CallbackQuery; c != nil {
 		s.callback(ctx, c)
 		return true
@@ -57,6 +61,12 @@ func (s *Server) HandleUpdate(ctx context.Context, u bot.Update) bool {
 	case text == "/help":
 		s.setState(ctx, usr, "help")
 		s.say(ctx, usr.TelegramID, usr.Lang, "help.ask", nil, "-")
+		return true
+	case text == "/daily":
+		if _, err := s.DB.Exec(ctx, `UPDATE users SET daily_q = true WHERE id = $1`, usr.ID); err != nil {
+			s.Log.Error("вопрос дня: база", "err", err)
+		}
+		s.say(ctx, usr.TelegramID, usr.Lang, "daily.on", nil, "-")
 		return true
 	case text == "/cancel":
 		s.setState(ctx, usr, "")

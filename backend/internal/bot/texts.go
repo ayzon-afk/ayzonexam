@@ -9,6 +9,18 @@ var texts = map[string][3]string{ // uz, ru, en
 	"btn.open":     {"Ochish", "Открыть", "Open"},
 	"btn.feedback": {"Tahlilni ochish", "Открыть разбор", "Open feedback"},
 
+	"daily.q":      {"☀️ Kun savoli", "☀️ Вопрос дня", "☀️ Question of the day"},
+	"daily.offbtn": {"O‘chirish", "Отключить", "Turn off"},
+	"daily.off":    {"Kun savoli o‘chirildi. Qayta yoqish — /daily", "Вопрос дня отключён. Включить снова — /daily", "Question of the day is off. Turn it back on — /daily"},
+	"daily.on": {"Kun savoli yoqildi: har kuni soat 9:00 da.", "Вопрос дня включён: каждый день в 9:00.",
+		"Question of the day is on: every day at 9:00."},
+	"daily.right": {"✅ To‘g‘ri! Darajangizni bilish uchun 15 daqiqalik testdan o‘ting yoki Writingni AI bilan tekshiring.",
+		"✅ Верно! Узнайте свой уровень за 15 минут или проверьте Writing с AI.",
+		"✅ Correct! Find out your level in 15 minutes or get your Writing checked by AI."},
+	"daily.wrong": {"❌ To‘g‘ri javob: {answer}. Bunday xatolarni 15 daqiqalik daraja testi va AI-tahlil topadi.",
+		"❌ Правильный ответ: {answer}. Такие ошибки находит тест уровня за 15 минут и AI-разбор.",
+		"❌ The right answer: {answer}. The 15-minute level test and AI feedback catch mistakes like this."},
+
 	"greet": {"Hammasi ilova ichida — pastdagi tugma orqali oching. Savol bo‘lsa — /help.",
 		"Всё происходит в приложении — открой его кнопкой ниже. Есть вопрос — /help.",
 		"Everything happens in the app — open it with the button below. Questions — /help."},

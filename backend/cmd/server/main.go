@@ -115,6 +115,9 @@ func run(log *slog.Logger) error {
 		}
 	}
 
+	if b != nil {
+		go app.RunDaily(ctx) // вопрос дня в 9:00 по Ташкенту (DECISIONS 2026-11-24)
+	}
 	queueDone := make(chan struct{})
 	go func() { queue.Run(ctx); close(queueDone) }()
 	speakDone := make(chan struct{})

@@ -638,6 +638,7 @@ type fakeBotAPI struct {
 	users  []string
 	admins []string
 	docs   []string
+	sent   []sentMsg
 	next   int64
 }
 
@@ -656,9 +657,19 @@ func (f *fakeBotAPI) ToAdmins(_ context.Context, text string, _ *bot.Photo, _ []
 	return []bot.Sent{{ChatID: adminTG, MessageID: f.next}}, nil
 }
 
-func (f *fakeBotAPI) Send(context.Context, int64, string, [][]bot.Button) (bot.Sent, error) {
+func (f *fakeBotAPI) Send(_ context.Context, chat int64, text string, b [][]bot.Button) (bot.Sent, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.sent = append(f.sent, sentMsg{chat, text, b})
 	return bot.Sent{}, nil
 }
+
+type sentMsg struct {
+	chat    int64
+	text    string
+	buttons [][]bot.Button
+}
+
 func (f *fakeBotAPI) Greet(context.Context, int64, string, string) error             { return nil }
 func (f *fakeBotAPI) AnswerCallback(context.Context, string, string) error           { return nil }
 func (f *fakeBotAPI) SetButtons(context.Context, int64, int64, [][]bot.Button) error { return nil }
