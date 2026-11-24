@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte'
   import BackBar from '../../components/BackBar.svelte'
+  import Proctor from '../../components/Proctor.svelte'
   import Skeleton from '../../components/Skeleton.svelte'
   import { api } from '../../lib/api'
   import { clock } from '../../lib/date'
@@ -104,6 +105,8 @@
     <span class="num">{clock(ends - now)}</span>
     <span class="hint">Part {q.part} · {i + 1}/{questions.length}</span>
   </div>
+  <!-- Камера в Speaking только предупреждает: запись ответа не обрывается (DECISIONS 2026-11-24). -->
+  {#if !done}<Proctor onviolation={() => {}} />{/if}
 
   {#if done}
     <section class="card stack">

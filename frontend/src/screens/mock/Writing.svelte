@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte'
   import BackBar from '../../components/BackBar.svelte'
+  import Proctor from '../../components/Proctor.svelte'
   import Skeleton from '../../components/Skeleton.svelte'
   import { api, ApiError, type MockPrompt } from '../../lib/api'
   import { clock } from '../../lib/date'
@@ -61,6 +62,13 @@
     }
   }
   document.addEventListener('visibilitychange', onVisibility)
+
+  // Камера: не на экран — нарушение, как уход из приложения.
+  function violation() {
+    if (!task2 || sending) return
+    leaves += 1
+    if (locked) submit()
+  }
   arm()
 
   const tick = setInterval(() => (now = Date.now()), 1000)
@@ -106,6 +114,7 @@
     <span class="num">{clock(ends - now)}</span>
     <span class="hint">{t('mock.writingTime')}</span>
   </div>
+  <Proctor onviolation={violation} />
   <p class="hint warn" role="status">{locked ? t('mock.locked') : leaves > 0 ? t('mock.warn', { n: leaves }) : t('mock.honest')}</p>
 
   {#if task1}

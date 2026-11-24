@@ -2,6 +2,7 @@
   import { onDestroy, onMount } from 'svelte'
   import BackBar from '../../components/BackBar.svelte'
   import Choice from '../../components/Choice.svelte'
+  import Proctor from '../../components/Proctor.svelte'
   import Skeleton from '../../components/Skeleton.svelte'
   import { api, ApiError, type Started } from '../../lib/api'
   import { clock } from '../../lib/date'
@@ -105,6 +106,14 @@
     }
   }
 
+  // Камера увидела, что ученик не смотрит на экран, — такое же нарушение, как уход из приложения.
+  function violation() {
+    if (!started || sending) return
+    leaves += 1
+    save()
+    if (leaves >= MAX_LEAVES) submit()
+  }
+
   const tick = setInterval(() => {
     now = Date.now()
     if (started && !sending && now >= ends) submit()
@@ -160,6 +169,7 @@
     <span class="hint">{t('practice.answered', { n: answered, total: test.questions.length })}</span>
   </div>
   {#if honest}
+    <Proctor onviolation={violation} />
     <p class="hint warn" role="status">{leaves > 0 ? t('mock.warn', { n: leaves }) : t('mock.honest')}</p>
   {/if}
 

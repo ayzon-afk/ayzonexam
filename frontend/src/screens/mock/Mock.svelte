@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte'
+  import CameraCheck from '../../components/CameraCheck.svelte'
   import Head from '../../components/Head.svelte'
   import Skeleton from '../../components/Skeleton.svelte'
   import { api, ApiError, type MockPart, type MockQuota, type MockSummary, type MockView } from '../../lib/api'
+  import { cameraChecked, isLaptop } from '../../lib/camera'
   import { clock, fmtDate } from '../../lib/date'
   import { formatBand } from '../../lib/exam'
   import { t, type Key } from '../../lib/i18n/index.svelte'
@@ -18,6 +20,10 @@
   let starting = $state(false)
   let error = $state<Key | ''>('')
   let now = $state(Date.now())
+  // Полный mock — только с ноутбука и после проверки камеры (DECISIONS 2026-11-24).
+  const laptop = isLaptop()
+  let camOk = $state(cameraChecked())
+  const ready = $derived(laptop && camOk)
 
   const parts: { id: MockPart; name: string; min: number }[] = [
     { id: 'listening', name: 'Listening', min: 30 },
@@ -40,6 +46,7 @@
   }
 
   async function start() {
+    if (!ready) return
     starting = true
     error = ''
     try {
@@ -54,7 +61,7 @@
   }
 
   function open(p: MockPart) {
-    if (!active) return
+    if (!active || !ready) return
     const st = active.parts[p].state
     if (st === 'done' || st === 'checking') return
     const r: Route =
@@ -79,6 +86,12 @@
 
 <Head title={t('mock.title')} sub={t('mock.lead')} demo={false} />
 
+{#if !laptop}
+  <p class="card">{t('mock.laptopOnly', { site: location.host })}</p>
+{:else if !camOk}
+  <CameraCheck ondone={() => (camOk = true)} />
+{/if}
+
 {#if failed}
   <p class="error">{t('app.error')}</p>
   <button class="btn btn-plain" onclick={load}>{t('app.retry')}</button>
@@ -94,7 +107,7 @@
       {#each parts as p (p.id)}
         {@const st = active.parts[p.id]}
         <li>
-          <button class="row" disabled={st.state === 'done' || st.state === 'checking'} onclick={() => open(p.id)}>
+          <button class="row" disabled={!ready || st.state === 'done' || st.state === 'checking'} onclick={() => open(p.id)}>
             <span class="dot {st.state}" aria-hidden="true"></span>
             <span class="grow">
               <strong>{p.name}</strong>
@@ -121,7 +134,7 @@
       {/if}
       {#if quota.credits > 0}{t('mock.credits', { n: quota.credits })}{/if}
     </p>
-    <button class="btn" disabled={starting} onclick={start}>{t('mock.start')}</button>
+    <button class="btn" disabled={starting || !ready} onclick={start}>{t('mock.start')}</button>
     {#if error === 'mock.pay'}
       <p>{t('mock.pay')}</p>
       <button class="btn btn-plain" onclick={() => go({ s: 'premium' })}>{t('premium.go')}</button>
