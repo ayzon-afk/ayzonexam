@@ -14,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"ayzonexam/internal/ai"
 	"ayzonexam/internal/billing"
 	"ayzonexam/internal/exam"
 	"ayzonexam/internal/news"
@@ -737,6 +738,10 @@ func (s *server) adminTestSpeak(w http.ResponseWriter, r *http.Request, a users.
 	callCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
 	wav, err := s.AI.Speak(callCtx, script)
+	if errors.Is(err, ai.ErrQuota) {
+		writeError(w, http.StatusTooManyRequests, "ai_quota")
+		return
+	}
 	if err != nil {
 		s.Log.Warn("озвучка не удалась", "test", id, "err", err)
 		writeError(w, http.StatusBadGateway, "ai_unavailable")

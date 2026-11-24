@@ -125,6 +125,10 @@ func (s *server) recognize(w http.ResponseWriter, r *http.Request, u users.User)
 			writeError(w, http.StatusUnprocessableEntity, "no_text")
 			return
 		}
+		if errors.Is(err, ai.ErrQuota) {
+			writeError(w, http.StatusTooManyRequests, "daily_limit")
+			return
+		}
 		s.Log.Warn("распознавание не удалось", "err", err)
 		writeError(w, http.StatusBadGateway, "ai_unavailable")
 		return

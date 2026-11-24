@@ -51,6 +51,9 @@ func run(log *slog.Logger) error {
 
 	gemini := ai.NewGemini(cfg.GeminiAPIKey, cfg.GeminiModel)
 	gemini.TTSModel = cfg.GeminiTTSModel
+	if cfg.GeminiDailyLimit > 0 {
+		gemini.Take = (&ai.Quota{Pool: pool, Limit: cfg.GeminiDailyLimit, Now: time.Now}).Take
+	}
 	var checker ai.Checker = gemini
 	if cfg.GeminiAPIKey == "" {
 		checker = ai.Fake{}
@@ -124,7 +127,7 @@ func run(log *slog.Logger) error {
 	}
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
-	log.Info("сервер запущен", "addr", cfg.Addr, "bot", cfg.BotMode, "ai", checker.Model())
+	log.Info("сервер запущен", "addr", cfg.Addr, "bot", cfg.BotMode, "ai", checker.Model(), "gemini_day_limit", cfg.GeminiDailyLimit)
 
 	select {
 	case err := <-errc:

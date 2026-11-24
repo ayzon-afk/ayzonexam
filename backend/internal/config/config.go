@@ -38,6 +38,7 @@ type Config struct {
 	GeminiAPIKey      string // пусто — проверки заглушкой (ai.Fake), только не на боевом сервере
 	GeminiModel       string
 	GeminiTTSModel    string // синтез речи для Listening
+	GeminiDailyLimit  int    // запросов к Gemini в сутки на модель; 0 — без счёта (платный ключ)
 	WritingDailyLimit int    // проверок Writing в день с Premium; без него — 2 в неделю (billing)
 	WritingWorkers    int    // сколько проверок Writing идёт одновременно
 	SpeakingWorkers   int    // сколько проверок Speaking идёт одновременно
@@ -80,6 +81,9 @@ func FromEnv() (Config, error) {
 	}
 	var err error
 	if c.WritingDailyLimit, err = envInt("WRITING_DAILY_LIMIT", 3, 1, 100); err != nil {
+		return c, err
+	}
+	if c.GeminiDailyLimit, err = envInt("GEMINI_DAILY_LIMIT", 0, 0, 1_000_000); err != nil {
 		return c, err
 	}
 	if c.WritingWorkers, err = envInt("WRITING_WORKERS", 3, 1, 20); err != nil {

@@ -126,6 +126,13 @@ func (q *Queue) Step(ctx context.Context) (bool, error) {
 			WHERE id = $1 AND status = 'processing' AND attempts = $2`, j.id, j.attempts)
 		return true, err
 	}
+	if errors.Is(err, ai.ErrQuota) {
+		// Запросы к Gemini на сегодня кончились — ждать новых суток Gemini, попытка не считается.
+		_, err := q.Store.pool.Exec(ctx, `UPDATE writing_checks
+			SET status = 'queued', attempts = attempts - 1, run_after = $3, locked_until = NULL, last_error = $4
+			WHERE id = $1 AND status = 'processing' AND attempts = $2`, j.id, j.attempts, ai.QuotaReset(now), err.Error())
+		return true, err
+	}
 	if err != nil {
 		q.Log.Warn("проверка Writing не удалась", "check", j.id, "attempt", j.attempts, "err", err)
 		if j.attempts >= maxAttempts {

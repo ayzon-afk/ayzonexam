@@ -78,6 +78,11 @@
     note = ''
     try {
       const res = await fetch(`/api/admin/tests/${edit.id}/speak`, { method: 'POST', headers: { Authorization: authHeader() } })
+      if (res.status === 429) {
+        busy = ''
+        note = 'Запросы к Gemini на сегодня кончились (GEMINI_DAILY_LIMIT) — снова можно с 13:00 по Ташкенту (летом — с 12:00).'
+        return
+      }
       if (!res.ok) throw new Error('speak')
       const wav = await res.blob()
       const ctx = new AudioContext()

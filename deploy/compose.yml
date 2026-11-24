@@ -62,6 +62,7 @@ services:
       WEBHOOK_SECRET: ${WEBHOOK_SECRET:?задайте в deploy/.env}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-}
+      GEMINI_DAILY_LIMIT: ${GEMINI_DAILY_LIMIT:-0}
       ADMIN_IDS: ${ADMIN_IDS:?задайте в deploy/.env}
       PAY_CARD: ${PAY_CARD:-}
       PAY_CARD_NAME: ${PAY_CARD_NAME:-}

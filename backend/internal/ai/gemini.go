@@ -24,6 +24,9 @@ type Gemini struct {
 
 	// TTSModel — модель синтеза речи для Listening (GEMINI_TTS_MODEL).
 	TTSModel string
+	// Take занимает запрос к модели из дневного лимита (Quota.Take); false — запросов на сегодня нет.
+	// nil — без лимита.
+	Take func(ctx context.Context, model string) (bool, error)
 }
 
 func NewGemini(key, model string) *Gemini {
@@ -97,6 +100,15 @@ func (g *Gemini) call(ctx context.Context, model string, req generateRequest) (c
 	body, err := json.Marshal(req)
 	if err != nil {
 		return content{}, err
+	}
+	if g.Take != nil {
+		ok, err := g.Take(ctx, model)
+		if err != nil {
+			return content{}, fmt.Errorf("gemini: счётчик запросов: %w", err)
+		}
+		if !ok {
+			return content{}, ErrQuota
+		}
 	}
 	hr, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		g.apiBase+"/models/"+url.PathEscape(model)+":generateContent", bytes.NewReader(body))

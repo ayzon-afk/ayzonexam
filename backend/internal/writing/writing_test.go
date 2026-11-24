@@ -393,3 +393,73 @@ func TestRunWakesOnCreate(t *testing.T) {
 	cancel()
 	<-stopped
 }
+
+func TestGeminiQuota(t *testing.T) {
+	clock := now
+	q := &ai.Quota{Pool: pool, Limit: 2, Now: func() time.Time { return clock }}
+	take := func(model string) bool {
+		t.Helper()
+		ok, err := q.Take(t.Context(), model)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return ok
+	}
+	if !take("m") || !take("m") || take("m") {
+		t.Fatal("лимит 2: два запроса проходят, третий — нет")
+	}
+	if !take("other") {
+		t.Fatal("у другой модели свой лимит")
+	}
+	clock = ai.QuotaReset(clock)
+	if !take("m") {
+		t.Fatal("в новые сутки Gemini лимит снова есть")
+	}
+
+	// Одновременно — ровно Limit, не больше.
+	clock = clock.AddDate(0, 0, 3)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	ok := 0
+	for range 10 {
+		wg.Go(func() {
+			if yes, err := q.Take(context.Background(), "m"); err == nil && yes {
+				mu.Lock()
+				ok++
+				mu.Unlock()
+			}
+		})
+	}
+	wg.Wait()
+	if ok != 2 {
+		t.Fatalf("10 одновременных запросов: прошло %d, ждали 2", ok)
+	}
+}
+
+func TestQueueWaitsQuota(t *testing.T) {
+	clearQueue(t)
+	s := NewStore(pool)
+	u := newUser(t, 7090)
+	id := create(t, s, u, Task2, nil)
+	stub, notify := &stubAI{errs: []error{ai.ErrQuota}}, &stubNotify{}
+	clock := now
+	q := newQueue(s, stub, notify, &clock)
+
+	drain(t, q)
+	var status string
+	var attempts int
+	pool.QueryRow(t.Context(), `SELECT status, attempts FROM writing_checks WHERE id = $1`, id).Scan(&status, &attempts)
+	if status != StatusQueued || attempts != 0 || len(notify.sent) != 0 {
+		t.Fatalf("без запросов к Gemini проверка ждёт в очереди, попытка не считается: %s, попыток %d, уведомлений %d", status, attempts, len(notify.sent))
+	}
+	clock = ai.QuotaReset(now).Add(-time.Second)
+	drain(t, q)
+	if stub.calls != 1 {
+		t.Fatalf("до новых суток Gemini проверка не берётся: вызовов %d", stub.calls)
+	}
+	clock = ai.QuotaReset(now)
+	drain(t, q)
+	if c, _ := s.Get(t.Context(), u, id); c.Status != StatusDone || len(notify.sent) != 1 {
+		t.Fatalf("в новые сутки проверка проходит: %s, уведомлений %d", c.Status, len(notify.sent))
+	}
+}
