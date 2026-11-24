@@ -69,6 +69,7 @@ type server struct {
 	news     *news.Store
 	support  *support.Store
 	speaking *speaking.Store
+	leads    leadLimiter
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.h.ServeHTTP(w, r) }
@@ -106,6 +107,10 @@ func New(d Deps) *Server {
 	adm := func(pattern string, h func(http.ResponseWriter, *http.Request, users.User)) {
 		mux.Handle(pattern, s.admin(h))
 	}
+
+	// Открытая страница: без входа (DECISIONS 2026-11-24).
+	mux.HandleFunc("GET /api/info", s.publicInfo)
+	mux.HandleFunc("POST /api/leads", s.createLead)
 
 	a("GET /api/me", s.getMe)
 	a("PATCH /api/me", s.patchMe)
@@ -206,6 +211,7 @@ func New(d Deps) *Server {
 	adm("PUT /api/admin/questions/{id}", s.adminQuestionSave)
 	adm("GET /api/admin/log", s.adminLog)
 	adm("GET /api/admin/usage", s.adminUsage)
+	adm("GET /api/admin/leads", s.adminLeads)
 	adm("GET /api/admin/usage.csv", s.adminUsageCSV)
 	adm("POST /api/admin/usage/send", s.adminUsageSend)
 

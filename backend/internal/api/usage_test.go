@@ -65,8 +65,10 @@ func TestUsage(t *testing.T) {
 	}
 	var adminID int64
 	pool.QueryRow(t.Context(), `SELECT id FROM users WHERE telegram_id = $1`, adminTG).Scan(&adminID)
-	if strings.Contains(csv, fmt.Sprintf(",%d,", adminID)) {
-		t.Fatalf("владелец попал в CSV:\n%s", csv)
+	for _, line := range strings.Split(csv, "\n") {
+		if f := strings.Split(line, ","); len(f) > 1 && f[1] == fmt.Sprint(adminID) {
+			t.Fatalf("владелец попал в CSV:\n%s", csv)
+		}
 	}
 
 	if r := do(t, h, "POST", "/api/admin/usage/send", admin, ""); r.code != 204 {

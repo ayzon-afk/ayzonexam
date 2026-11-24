@@ -11,6 +11,7 @@
     { id: 'overview', name: 'Обзор', load: () => import('./Overview.svelte') },
     { id: 'usage', name: 'Использование', load: () => import('./Usage.svelte') },
     { id: 'users', name: 'Ученики', load: () => import('./Users.svelte') },
+    { id: 'leads', name: 'Заявки', load: () => import('./Leads.svelte') },
     { id: 'centers', name: 'Центры', load: () => import('./Centers.svelte') },
     { id: 'teachers', name: 'Учителя', load: () => import('./Teachers.svelte') },
     { id: 'payments', name: 'Оплаты', load: () => import('./Payments.svelte') },

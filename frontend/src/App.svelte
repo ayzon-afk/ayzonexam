@@ -109,12 +109,19 @@
   {:else}
     <Onboarding ondone={onboarded} />
   {/if}
+{:else if status === 'outside'}
+  <!-- Вне Telegram — открытая страница о продукте (DECISIONS 2026-11-24); Mini App её не качает. -->
+  {#await import('./screens/Landing.svelte')}
+    <main class="center"><Loader phrases={false} /></main>
+  {:then m}
+    <m.default />
+  {:catch}
+    <main class="center"><p>{t('app.outside')}</p></main>
+  {/await}
 {:else}
   <main class="center">
     {#if status === 'loading'}
       <Loader />
-    {:else if status === 'outside'}
-      <p>{t('app.outside')}</p>
     {:else if status === 'out'}
       <p class="brand"><Logo size={40} /></p>
       <p>{t('logout.done')}</p>
