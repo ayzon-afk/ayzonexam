@@ -43,20 +43,23 @@ func TestDailyQuestion(t *testing.T) {
 		t.Fatal(err)
 	}
 	wrong := (q.Answer + 1) % len(q.Options)
+	// Банк поменяли после рассылки — ответ сверяется с ушедшим вопросом, а не с новым по кругу.
+	pool.Exec(ctx, `INSERT INTO tests (kind, title, minutes, questions) VALUES ('level', 'Extra', 5, '[{"q":"X?","options":["a","b"],"answer":0}]')`)
+	defer pool.Exec(ctx, `DELETE FROM tests WHERE title = 'Extra'`)
 	press := func(data string) {
 		h.HandleUpdate(ctx, update(t, fmt.Sprintf(`{"callback_query":{"id":"cb","data":%q,"from":{"id":%d,"first_name":"A"},
 			"message":{"message_id":1,"chat":{"id":%d,"type":"private"}}}}`, data, tg, tg)))
 	}
-	press(fmt.Sprintf("dq:20261201:%d", wrong))
-	press(fmt.Sprintf("dq:20261201:%d", q.Answer)) // второй ответ не считается
+	press(fmt.Sprintf("dq:20261201:%d", q.Answer))
+	press(fmt.Sprintf("dq:20261201:%d", wrong)) // второй ответ не считается
 	var correct bool
 	var answers int
 	pool.QueryRow(ctx, `SELECT count(*), bool_or(correct) FROM daily_answers a JOIN users u ON u.id = a.user_id
 		WHERE u.telegram_id = $1`, tg).Scan(&answers, &correct)
-	if answers != 1 || correct {
-		t.Fatalf("засчитан первый ответ (неверный): %d %v", answers, correct)
+	if answers != 1 || !correct {
+		t.Fatalf("засчитан первый ответ (верный): %d %v", answers, correct)
 	}
-	if !strings.Contains(strings.Join(msg.users, "|"), fmt.Sprintf("%d:daily.wrong", tg)) {
+	if !strings.Contains(strings.Join(msg.users, "|"), fmt.Sprintf("%d:daily.right", tg)) {
 		t.Fatalf("после ответа — приглашение в приложение: %v", msg.users)
 	}
 	press("dq:bad")

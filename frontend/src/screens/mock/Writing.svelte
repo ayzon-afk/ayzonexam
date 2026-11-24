@@ -26,6 +26,16 @@
   // Честный режим (lib/proctor): уходы из приложения; с третьего текст закрыт и работа отправляется.
   let leaves = $state(0)
   const locked = $derived(leaves >= MAX_LEAVES)
+  // Третье нарушение отправляет работу один раз. Сервер ответил «слишком коротко» — текст снова открыт: иначе
+  // ученик застрял бы, не может ни дописать, ни сдать.
+  let autoSent = false
+  const frozen = $derived(locked && error !== 'mock.tooShort')
+  function autoSubmit() {
+    if (locked && !autoSent) {
+      autoSent = true
+      submit()
+    }
+  }
 
   // svelte-ignore state_referenced_locally
   const KEY = `ayzon.mock.writing.${r.id}`
@@ -58,7 +68,7 @@
     if (document.visibilityState === 'hidden') leaves += 1
     else if (leaves > 0) {
       warn()
-      if (locked) submit()
+      autoSubmit()
     }
   }
   document.addEventListener('visibilitychange', onVisibility)
@@ -67,7 +77,7 @@
   function violation() {
     if (!task2 || sending) return
     leaves += 1
-    if (locked) submit()
+    autoSubmit()
   }
   arm()
 
@@ -115,14 +125,14 @@
     <span class="hint">{t('mock.writingTime')}</span>
   </div>
   <Proctor onviolation={violation} />
-  <p class="hint warn" role="status">{locked ? t('mock.locked') : leaves > 0 ? t('mock.warn', { n: leaves }) : t('mock.honest')}</p>
+  <p class="hint warn" role="status">{frozen ? t('mock.locked') : leaves > 0 ? t('mock.warn', { n: leaves }) : t('mock.honest')}</p>
 
   {#if task1}
     <section class="card stack">
       <h2>Task 1</h2>
       <p>{task1.text}</p>
       {#if task1.image}<img src={task1.image} alt="" />{/if}
-      <textarea bind:value={a1} readonly={locked} placeholder={t('new.placeholder')} rows="10"></textarea>
+      <textarea bind:value={a1} readonly={frozen} placeholder={t('new.placeholder')} rows="10"></textarea>
       <p class="hint">{t('new.words', { n: w1, min: EXAM_WORDS.task1 })}</p>
     </section>
   {/if}
@@ -130,7 +140,7 @@
   <section class="card stack">
     <h2>Task 2</h2>
     <p>{task2.text}</p>
-    <textarea bind:value={a2} readonly={locked} placeholder={t('new.placeholder')} rows="14"></textarea>
+    <textarea bind:value={a2} readonly={frozen} placeholder={t('new.placeholder')} rows="14"></textarea>
     <p class="hint">{t('new.words', { n: w2, min: EXAM_WORDS.task2 })}</p>
   </section>
 

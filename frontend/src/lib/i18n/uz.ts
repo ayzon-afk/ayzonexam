@@ -507,6 +507,18 @@ export const uz = {
   'land.or': 'yoki',
   'land.forCenters': 'O‘quv markazlari uchun →',
   'land.back': '← Kirish',
+  'community.lead': 'Birga o‘qing: do‘stlarni taklif qiling, duellarda bellashing, turnir va yangiliklarni kuzating.',
+  'community.invite': 'Do‘stni taklif qilish',
+  'community.inviteSub': 'Do‘st daraja testidan o‘tsa — sizga +1 tekshiruv',
+  'community.duel': 'Do‘st bilan duel',
+  'community.duelSub': '5 daqiqa, so‘zlar — kim ko‘proq biladi?',
+  'community.tour': 'Oy turniri',
+  'community.tourSub': 'Hamma bir vaqtda topshiradi — Toshkent bo‘yicha natijalar',
+  'community.news': 'Yangiliklar',
+  'community.newsSub': 'Maslahatlar va natijalar',
+  'community.center': 'Mening o‘quv markazim',
+  'community.centerSub': 'Markaz reytingi va guruhdoshlar',
+  'community.soon': 'Tez orada: lenta, o‘qituvchi bilan guruhlar va insholarni o‘zaro tekshirish.',
 } as const
 
 export type Key = keyof typeof uz

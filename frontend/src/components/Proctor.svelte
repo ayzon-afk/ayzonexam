@@ -7,7 +7,8 @@
   // Камера во время части полного mock (DECISIONS 2026-11-24): маленькое окно в углу. Не на экран дольше
   // AWAY_MS (нет лица, два лица, взгляд или голова в сторону) — сигнал и нарушение; каждые следующие
   // AWAY_MS — ещё одно. Без камеры часть закрыта полупрозрачным экраном с просьбой включить её.
-  let { onviolation }: { onviolation: () => void } = $props()
+  // sound = false — без сигнала, только вибрация и надпись: в Speaking сигнал попал бы в запись ответа.
+  let { onviolation, sound = true }: { onviolation: () => void; sound?: boolean } = $props()
 
   let video = $state<HTMLVideoElement | null>(null)
   let phase = $state<'loading' | 'on' | 'denied'>('loading')
@@ -27,7 +28,7 @@
     if (!awaySince) awaySince = ts
     if (ts - awaySince >= AWAY_MS) {
       awaySince = ts
-      warn()
+      warn(sound)
       onviolation()
     }
   }

@@ -111,7 +111,8 @@ func (b *Bot) Setup(ctx context.Context, webhookURL, secret string) error {
 		return err
 	}
 	for _, lang := range []string{"", "ru", "en"} {
-		cmds := []map[string]string{{"command": "start", "description": T(lang, "cmd.start")}, {"command": "help", "description": T(lang, "cmd.help")}}
+		cmds := []map[string]string{{"command": "start", "description": T(lang, "cmd.start")}, {"command": "help", "description": T(lang, "cmd.help")},
+			{"command": "daily", "description": T(lang, "cmd.daily")}}
 		p := map[string]any{"commands": cmds}
 		if lang != "" {
 			p["language_code"] = lang

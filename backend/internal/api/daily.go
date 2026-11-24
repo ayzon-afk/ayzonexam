@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"ayzonexam/internal/bot"
 )
 
@@ -22,10 +24,9 @@ type dailyQ struct {
 	Answer  int      `json:"answer"`
 }
 
-// dailyQuestion — вопрос дня day: по порядку из банка, по кругу. Банк меняется — меняется и порядок; ответ
-// на вчерашний вопрос сверяется с тем, что лежит в банке сейчас, — для вопроса дня этого достаточно.
-func (s *server) dailyQuestion(ctx context.Context, day time.Time) (dailyQ, error) {
-	rows, err := s.DB.Query(ctx, `SELECT questions FROM tests WHERE kind = 'level' ORDER BY id`)
+// pickDaily — вопрос для дня day: по порядку из банка видимых тестов уровня, по кругу.
+func (s *server) pickDaily(ctx context.Context, day time.Time) (dailyQ, error) {
+	rows, err := s.DB.Query(ctx, `SELECT questions FROM tests WHERE kind = 'level' AND active ORDER BY id`)
 	if err != nil {
 		return dailyQ{}, err
 	}
@@ -56,6 +57,21 @@ func (s *server) dailyQuestion(ctx context.Context, day time.Time) (dailyQ, erro
 	return all[n%len(all)], nil
 }
 
+// dailyQuestion — вопрос, который ушёл в рассылке дня day; рассылка без сохранённого вопроса (до миграции
+// 0015) — по банку, как при рассылке.
+func (s *server) dailyQuestion(ctx context.Context, day time.Time) (dailyQ, error) {
+	var raw []byte
+	err := s.DB.QueryRow(ctx, `SELECT question FROM daily_sends WHERE day = $1`, day).Scan(&raw)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return dailyQ{}, err
+	}
+	var q dailyQ
+	if raw != nil && json.Unmarshal(raw, &q) == nil && q.Answer >= 0 && q.Answer < len(q.Options) {
+		return q, nil
+	}
+	return s.pickDaily(ctx, day)
+}
+
 func dayKey(d time.Time) string { return d.Format("20060102") }
 
 // RunDaily раз в минуту проверяет, не пора ли разослать вопрос дня. До отмены ctx.
@@ -84,11 +100,13 @@ func (s *server) SendDaily(ctx context.Context) error {
 		return nil
 	}
 	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-	tag, err := s.DB.Exec(ctx, `INSERT INTO daily_sends (day) VALUES ($1) ON CONFLICT DO NOTHING`, day)
-	if err != nil || tag.RowsAffected() == 0 {
+	// Уже слали — дальше не идём; вопрос и список — до записи о рассылке: ошибка в них не должна оставить
+	// день «разосланным» без вопроса, следующая минута попробует снова.
+	var done bool
+	if err := s.DB.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM daily_sends WHERE day = $1)`, day).Scan(&done); err != nil || done {
 		return err
 	}
-	q, err := s.dailyQuestion(ctx, day)
+	q, err := s.pickDaily(ctx, day)
 	if err != nil {
 		return err
 	}
@@ -113,6 +131,11 @@ func (s *server) SendDaily(ctx context.Context) error {
 	rows.Close()
 	if err := rows.Err(); err != nil {
 		return err
+	}
+	qjs, _ := json.Marshal(q)
+	tag, err := s.DB.Exec(ctx, `INSERT INTO daily_sends (day, question) VALUES ($1, $2) ON CONFLICT DO NOTHING`, day, qjs)
+	if err != nil || tag.RowsAffected() == 0 {
+		return err // другой экземпляр сервера успел первым
 	}
 	sent := 0
 	for _, r := range list {

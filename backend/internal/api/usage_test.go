@@ -36,6 +36,27 @@ func TestUsage(t *testing.T) {
 	if secs != 80 || beats != 6 {
 		t.Fatalf("активные секунды %d, пульсов %d; ждали 80 и 6", secs, beats)
 	}
+	// Два окна сразу, пульсы вперемешку каждые 15 с: за минуту — минута, а не две.
+	const tg2 = 9972
+	beat2 := func(sid string, start bool) {
+		t.Helper()
+		if r := do(t, h, "POST", "/api/beat", initDataAt(tg2, c.now()), fmt.Sprintf(`{"sid":%q,"start":%v}`, sid, start)); r.code != 204 {
+			t.Fatalf("пульс: %d %s", r.code, r.raw)
+		}
+	}
+	beat2("windowAAA", true)
+	c.add(15 * time.Second)
+	beat2("windowBBB", true)
+	for i := 0; i < 4; i++ {
+		c.add(15 * time.Second)
+		beat2([]string{"windowAAA", "windowBBB"}[i%2], false)
+	}
+	var both int
+	pool.QueryRow(t.Context(), `SELECT sum(active_seconds) FROM app_sessions s JOIN users u ON u.id = s.user_id
+		WHERE u.telegram_id = $1`, tg2).Scan(&both)
+	if both != 60 {
+		t.Fatalf("два окна за 60 с засчитали %d с", both)
+	}
 	if r := do(t, h, "POST", "/api/beat", initDataAt(tg, c.now()), `{"sid":"x"}`); r.code != 400 {
 		t.Fatalf("короткий sid: %d", r.code)
 	}

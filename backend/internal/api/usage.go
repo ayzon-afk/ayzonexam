@@ -41,7 +41,10 @@ func (s *server) beat(w http.ResponseWriter, r *http.Request, u users.User) {
 		ON CONFLICT (user_id, sid) DO UPDATE SET
 			active_seconds = app_sessions.active_seconds + CASE
 				WHEN $4 OR $3 - app_sessions.last_beat > make_interval(secs => $5) OR $3 < app_sessions.last_beat THEN 0
-				ELSE least(floor(extract(epoch FROM $3 - app_sessions.last_beat)), $6)::int END,
+				ELSE greatest(0, least(floor(extract(epoch FROM $3 - app_sessions.last_beat)), $6,
+					-- Два окна сразу: не больше, чем прошло с пульса другого окна, — минуты не удваиваются.
+					coalesce(floor(extract(epoch FROM $3 - (SELECT max(o.last_beat) FROM app_sessions o
+						WHERE o.user_id = $1 AND o.sid <> $2))), $6)))::int END,
 			last_beat = greatest(app_sessions.last_beat, $3),
 			beats = app_sessions.beats + 1`,
 		u.ID, b.SID, s.Now(), b.Start, float64(beatGap), beatMax)

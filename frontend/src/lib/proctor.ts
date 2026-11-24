@@ -21,10 +21,10 @@ export function arm() {
   addEventListener('pointerdown', unlock, { once: true, capture: true })
 }
 
-// warn — три коротких сигнала и вибрация.
-export function warn() {
+// warn — три коротких сигнала и вибрация; sound = false — только вибрация (Speaking: сигнал попал бы в запись).
+export function warn(sound = true) {
   haptic.error()
-  if (!ctx) return
+  if (!ctx || !sound) return
   try {
     if (ctx.state === 'suspended') ctx.resume()
     const g = ctx.createGain()

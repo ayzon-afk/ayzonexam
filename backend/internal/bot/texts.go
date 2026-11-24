@@ -6,6 +6,7 @@ import "strings"
 var texts = map[string][3]string{ // uz, ru, en
 	"cmd.start":    {"Ilovani ochish", "Открыть приложение", "Open the app"},
 	"cmd.help":     {"Yordam — savol yozish", "Поддержка — написать вопрос", "Support — ask a question"},
+	"cmd.daily":    {"Kun savolini yoqish", "Включить вопрос дня", "Turn on the question of the day"},
 	"btn.open":     {"Ochish", "Открыть", "Open"},
 	"btn.feedback": {"Tahlilni ochish", "Открыть разбор", "Open feedback"},
 

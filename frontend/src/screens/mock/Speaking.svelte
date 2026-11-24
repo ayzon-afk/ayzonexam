@@ -105,8 +105,9 @@
     <span class="num">{clock(ends - now)}</span>
     <span class="hint">Part {q.part} · {i + 1}/{questions.length}</span>
   </div>
-  <!-- Камера в Speaking только предупреждает: запись ответа не обрывается (DECISIONS 2026-11-24). -->
-  {#if !done}<Proctor onviolation={() => {}} />{/if}
+  <!-- Камера в Speaking только предупреждает, без звука: запись ответа не обрывается и сигнал в неё не
+       попадает (DECISIONS 2026-11-24). -->
+  {#if !done}<Proctor sound={false} onviolation={() => {}} />{/if}
 
   {#if done}
     <section class="card stack">

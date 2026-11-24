@@ -71,7 +71,12 @@ export async function openCamera(video: HTMLVideoElement): Promise<MediaStream> 
     audio: false,
   })
   video.srcObject = stream
-  await video.play()
+  try {
+    await video.play()
+  } catch (e) {
+    stopCamera(stream) // видео не запустилось — камеру выключить, иначе лампочка горит без проверки
+    throw e
+  }
   return stream
 }
 
