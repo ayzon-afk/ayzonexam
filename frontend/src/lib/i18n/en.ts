@@ -487,4 +487,7 @@ export const en: Record<Key, string> = {
   'land.sent': 'Thank you! We’ll be in touch soon.',
   'land.bad': 'Check the center name, your name and phone.',
   'land.many': 'Too many requests. Please try again a bit later.',
+  'mock.honest': 'Honest mode: stay in the app. After 3 exits the part is submitted automatically.',
+  'mock.warn': 'You left the app ({n} of 3). On the third time the part is submitted automatically.',
+  'mock.locked': 'Three exits from the app — the part is closed.',
 }

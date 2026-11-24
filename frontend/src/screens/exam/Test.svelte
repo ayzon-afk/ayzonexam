@@ -7,6 +7,7 @@
   import { clock } from '../../lib/date'
   import { t, type Key } from '../../lib/i18n/index.svelte'
   import { back, replace, type TestSource } from '../../lib/nav.svelte'
+  import { arm, MAX_LEAVES, warn } from '../../lib/proctor'
   import { haptic } from '../../lib/telegram'
 
   // Задание с таймером: Reading, Listening, тест уровня — в практике, в mock и в турнире. По нулю ответы
@@ -16,6 +17,8 @@
 
   // svelte-ignore state_referenced_locally
   const from = r.from
+  // Часть mock — честный режим: сигнал при возврате, третий уход сдаёт часть (lib/proctor).
+  const honest = 'mock' in from
 
   let started = $state<Started | null>(null)
   let error = $state<Key | ''>('')
@@ -92,9 +95,13 @@
 
   // Уход из приложения во время задания.
   function onVisibility() {
-    if (document.visibilityState === 'hidden' && started && !sending) {
+    if (!started || sending) return
+    if (document.visibilityState === 'hidden') {
       leaves += 1
       save()
+    } else if (honest && leaves > 0) {
+      warn()
+      if (leaves >= MAX_LEAVES) submit()
     }
   }
 
@@ -125,6 +132,7 @@
 
   onMount(() => {
     document.addEventListener('visibilitychange', onVisibility)
+    if (honest) arm()
     start()
   })
   onDestroy(() => {
@@ -151,6 +159,9 @@
     <span class="num">{clock(ends - now)}</span>
     <span class="hint">{t('practice.answered', { n: answered, total: test.questions.length })}</span>
   </div>
+  {#if honest}
+    <p class="hint warn" role="status">{leaves > 0 ? t('mock.warn', { n: leaves }) : t('mock.honest')}</p>
+  {/if}
 
   {#if test.passage}
     <article class="card passage">
@@ -186,7 +197,7 @@
     <Choice n={i + 1} {q} bind:value={answers[i]} />
   {/each}
 
-  {#if leaves > 0}<p class="hint warn">{t('test.leaves', { n: leaves })}</p>{/if}
+  {#if !honest && leaves > 0}<p class="hint warn">{t('test.leaves', { n: leaves })}</p>{/if}
   <button class="btn" disabled={sending} onclick={submit}>{t('practice.finish')}</button>
 {/if}
 

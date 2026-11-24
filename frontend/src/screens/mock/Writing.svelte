@@ -6,6 +6,7 @@
   import { clock } from '../../lib/date'
   import { t, type Key } from '../../lib/i18n/index.svelte'
   import { back } from '../../lib/nav.svelte'
+  import { arm, MAX_LEAVES, warn } from '../../lib/proctor'
   import { haptic } from '../../lib/telegram'
   import { countWords, EXAM_WORDS } from '../../lib/writing'
 
@@ -21,6 +22,9 @@
   let error = $state<Key | ''>('')
   let sending = $state(false)
   let now = $state(Date.now())
+  // Честный режим (lib/proctor): уходы из приложения; с третьего текст закрыт и работа отправляется.
+  let leaves = $state(0)
+  const locked = $derived(leaves >= MAX_LEAVES)
 
   // svelte-ignore state_referenced_locally
   const KEY = `ayzon.mock.writing.${r.id}`
@@ -31,15 +35,16 @@
       task1 = res.task1
       task2 = res.task2
       ends = new Date(res.ends_at).getTime()
-      const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null') as { a1: string; a2: string } | null
+      const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null') as { a1: string; a2: string; leaves?: number } | null
       if (saved) ({ a1, a2 } = saved)
+      leaves = saved?.leaves ?? 0
     } catch (e) {
       error = e instanceof ApiError && e.code === 'no_tests' ? 'practice.empty' : 'app.error'
     }
   })
 
   $effect(() => {
-    const v = JSON.stringify({ a1, a2 })
+    const v = JSON.stringify({ a1, a2, leaves })
     try {
       localStorage.setItem(KEY, v)
     } catch {
@@ -47,8 +52,22 @@
     }
   })
 
+  function onVisibility() {
+    if (!task2 || sending) return
+    if (document.visibilityState === 'hidden') leaves += 1
+    else if (leaves > 0) {
+      warn()
+      if (locked) submit()
+    }
+  }
+  document.addEventListener('visibilitychange', onVisibility)
+  arm()
+
   const tick = setInterval(() => (now = Date.now()), 1000)
-  onDestroy(() => clearInterval(tick))
+  onDestroy(() => {
+    clearInterval(tick)
+    document.removeEventListener('visibilitychange', onVisibility)
+  })
 
   const w1 = $derived(countWords(a1))
   const w2 = $derived(countWords(a2))
@@ -87,13 +106,14 @@
     <span class="num">{clock(ends - now)}</span>
     <span class="hint">{t('mock.writingTime')}</span>
   </div>
+  <p class="hint warn" role="status">{locked ? t('mock.locked') : leaves > 0 ? t('mock.warn', { n: leaves }) : t('mock.honest')}</p>
 
   {#if task1}
     <section class="card stack">
       <h2>Task 1</h2>
       <p>{task1.text}</p>
       {#if task1.image}<img src={task1.image} alt="" />{/if}
-      <textarea bind:value={a1} placeholder={t('new.placeholder')} rows="10"></textarea>
+      <textarea bind:value={a1} readonly={locked} placeholder={t('new.placeholder')} rows="10"></textarea>
       <p class="hint">{t('new.words', { n: w1, min: EXAM_WORDS.task1 })}</p>
     </section>
   {/if}
@@ -101,7 +121,7 @@
   <section class="card stack">
     <h2>Task 2</h2>
     <p>{task2.text}</p>
-    <textarea bind:value={a2} placeholder={t('new.placeholder')} rows="14"></textarea>
+    <textarea bind:value={a2} readonly={locked} placeholder={t('new.placeholder')} rows="14"></textarea>
     <p class="hint">{t('new.words', { n: w2, min: EXAM_WORDS.task2 })}</p>
   </section>
 
@@ -111,6 +131,10 @@
 {/if}
 
 <style>
+  .warn {
+    color: var(--danger);
+  }
+
   h1 {
     font-size: 24px;
   }

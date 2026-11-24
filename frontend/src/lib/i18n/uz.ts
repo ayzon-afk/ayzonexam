@@ -486,6 +486,9 @@ export const uz = {
   'land.sent': 'Rahmat! Tez orada bog‘lanamiz.',
   'land.bad': 'Markaz nomi, ism va telefonni tekshiring.',
   'land.many': 'Juda ko‘p ariza. Birozdan keyin urinib ko‘ring.',
+  'mock.honest': 'Halol rejim: ilovadan chiqmang. 3 marta chiqsangiz, bo‘lim avtomatik topshiriladi.',
+  'mock.warn': 'Siz ilovadan chiqdingiz ({n} / 3). Uchinchi marta bo‘lim avtomatik topshiriladi.',
+  'mock.locked': 'Ilovadan 3 marta chiqildi — bo‘lim yopildi.',
 } as const
 
 export type Key = keyof typeof uz
