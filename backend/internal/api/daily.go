@@ -169,7 +169,8 @@ func (s *Server) dailyCallback(ctx context.Context, c *bot.Callback) {
 	}
 	day, err1 := time.Parse("20060102", parts[1])
 	pick, err2 := strconv.Atoi(parts[2])
-	if err1 != nil || err2 != nil {
+	// Ответ — только на вопрос последних 7 дней: старые кнопки и подделанные даты не считаются.
+	if age := s.Now().Sub(day); err1 != nil || err2 != nil || age < -24*time.Hour || age > 7*24*time.Hour {
 		answer("")
 		return
 	}

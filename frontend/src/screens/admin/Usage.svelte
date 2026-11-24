@@ -34,7 +34,7 @@
         a.href = URL.createObjectURL(await res.blob())
         a.download = 'ayzon-usage.csv'
         a.click()
-        URL.revokeObjectURL(a.href)
+        setTimeout(() => URL.revokeObjectURL(a.href), 10_000) // сразу после click часть браузеров обрывает скачивание
       }
     } catch {
       note = 'Не получилось. Проверьте интернет и попробуйте ещё раз.'

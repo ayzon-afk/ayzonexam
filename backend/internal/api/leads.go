@@ -42,15 +42,15 @@ func (l *leadLimiter) allow(ip string, now time.Time) bool {
 	return true
 }
 
-// clientIP — адрес посетителя: за прокси Railway — X-Real-IP или последний X-Forwarded-For (его дописывает
-// прокси, начало строки может подделать кто угодно).
+// clientIP — адрес посетителя: за прокси Railway — последний X-Forwarded-For (его дописывает прокси; начало
+// строки и X-Real-IP может подделать кто угодно, поэтому X-Real-IP — только без прокси).
 func clientIP(r *http.Request) string {
-	if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
-		return ip
-	}
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		parts := strings.Split(xff, ",")
 		return strings.TrimSpace(parts[len(parts)-1])
+	}
+	if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
+		return ip
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
