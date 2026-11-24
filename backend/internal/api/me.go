@@ -25,6 +25,7 @@ type BotAPI interface {
 	AnswerCallback(ctx context.Context, id, text string) error
 	SetButtons(ctx context.Context, chatID, messageID int64, buttons [][]bot.Button) error
 	Download(ctx context.Context, fileID string, max int64) ([]byte, error)
+	SendDocument(ctx context.Context, chatID int64, name string, data []byte, caption string) error
 }
 
 type (

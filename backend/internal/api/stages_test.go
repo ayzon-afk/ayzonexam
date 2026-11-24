@@ -637,6 +637,7 @@ type fakeBotAPI struct {
 	mu     sync.Mutex
 	users  []string
 	admins []string
+	docs   []string
 	next   int64
 }
 
@@ -662,6 +663,12 @@ func (f *fakeBotAPI) Greet(context.Context, int64, string, string) error        
 func (f *fakeBotAPI) AnswerCallback(context.Context, string, string) error           { return nil }
 func (f *fakeBotAPI) SetButtons(context.Context, int64, int64, [][]bot.Button) error { return nil }
 func (f *fakeBotAPI) Download(context.Context, string, int64) ([]byte, error)        { return webm, nil }
+func (f *fakeBotAPI) SendDocument(_ context.Context, chat int64, name string, data []byte, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.docs = append(f.docs, fmt.Sprintf("%d:%s:%s", chat, name, data))
+	return nil
+}
 
 func update(t *testing.T, js string) bot.Update {
 	t.Helper()

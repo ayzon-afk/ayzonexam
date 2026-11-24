@@ -9,6 +9,7 @@
   type Section = { id: string; name: string; load: () => Promise<{ default: Component<any> }> }
   const sections: Section[] = [
     { id: 'overview', name: 'Обзор', load: () => import('./Overview.svelte') },
+    { id: 'usage', name: 'Использование', load: () => import('./Usage.svelte') },
     { id: 'users', name: 'Ученики', load: () => import('./Users.svelte') },
     { id: 'centers', name: 'Центры', load: () => import('./Centers.svelte') },
     { id: 'teachers', name: 'Учителя', load: () => import('./Teachers.svelte') },

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { api, ApiError, initAuth, type Me } from './lib/api'
+  import { startBeat } from './lib/beat'
   import { initTelegram, startParam, telegramLanguage } from './lib/telegram'
   import { langFromTelegram, ready, setLang, t } from './lib/i18n/index.svelte'
   import { go, nav, routeFromOpen } from './lib/nav.svelte'
@@ -57,6 +58,7 @@
         nav.stack = target.route ? [target.route] : []
       }
       status = 'ready'
+      startBeat()
     } catch (e) {
       status = e instanceof ApiError && e.code === 'expired' ? 'expired' : 'error'
     }

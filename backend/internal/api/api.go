@@ -111,6 +111,7 @@ func New(d Deps) *Server {
 	a("PATCH /api/me", s.patchMe)
 	a("GET /api/me/stats", s.getStats)
 	a("GET /api/history", s.getHistory)
+	a("POST /api/beat", s.beat)
 
 	a("GET /api/writing/prompts", s.writingPrompts)
 	a("POST /api/writing/recognize", s.recognize)
@@ -204,6 +205,9 @@ func New(d Deps) *Server {
 	adm("POST /api/admin/questions", s.adminQuestionSave)
 	adm("PUT /api/admin/questions/{id}", s.adminQuestionSave)
 	adm("GET /api/admin/log", s.adminLog)
+	adm("GET /api/admin/usage", s.adminUsage)
+	adm("GET /api/admin/usage.csv", s.adminUsageCSV)
+	adm("POST /api/admin/usage/send", s.adminUsageSend)
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found")

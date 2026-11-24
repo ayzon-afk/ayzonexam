@@ -357,6 +357,21 @@ func (b *Bot) SendPhoto(ctx context.Context, chatID int64, photo Photo, caption 
 	return Sent{chatID, m.MessageID}, err
 }
 
+// SendDocument — файл в чат (выгрузка CSV для владельца).
+func (b *Bot) SendDocument(ctx context.Context, chatID int64, name string, data []byte, caption string) error {
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	mw.WriteField("chat_id", strconv.FormatInt(chatID, 10))
+	mw.WriteField("caption", caption)
+	fw, err := mw.CreateFormFile("document", name)
+	if err != nil {
+		return err
+	}
+	fw.Write(data)
+	mw.Close()
+	return b.do(ctx, "sendDocument", mw.FormDataContentType(), &body, nil)
+}
+
 // ToAdmins — сообщение владельцу и помощникам; возвращает отправленные (для ответов reply).
 func (b *Bot) ToAdmins(ctx context.Context, text string, photo *Photo, buttons [][]Button) ([]Sent, error) {
 	var sent []Sent
