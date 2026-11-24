@@ -504,6 +504,10 @@ export const uz = {
   'cam.watch': 'Kamera: ekranga qarang',
   'cam.denied': 'Kameraga ruxsat yo‘q. Brauzerda kamerani yoqing va qayta urinib ko‘ring.',
   'cam.retry': 'Qayta urinish',
+  'land.admin': 'AYZON EXAM boshqaruv paneli',
+  'land.or': 'yoki',
+  'land.forCenters': 'O‘quv markazlari uchun →',
+  'land.back': '← Kirish',
 } as const
 
 export type Key = keyof typeof uz

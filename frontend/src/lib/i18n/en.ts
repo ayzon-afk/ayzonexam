@@ -505,4 +505,8 @@ export const en: Record<Key, string> = {
   'cam.watch': 'Camera: look at the screen',
   'cam.denied': 'No camera access. Allow the camera in your browser and try again.',
   'cam.retry': 'Try again',
+  'land.admin': 'AYZON EXAM admin panel',
+  'land.or': 'or',
+  'land.forCenters': 'For learning centers →',
+  'land.back': '← Sign in',
 }

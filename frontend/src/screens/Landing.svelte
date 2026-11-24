@@ -4,15 +4,17 @@
   import { webLogin } from '../lib/api'
   import { getLang, LANGS, setLang, t, type Lang } from '../lib/i18n/index.svelte'
 
-  // Открытая страница вне Telegram (хакатон, DECISIONS 2026-11-24): что это, для кого, вход через бота и
-  // заявка учебного центра. Грузится лениво — Mini App её не качает.
+  // Сайт вне Telegram (DECISIONS 2026-11-24): «/» — вход на весь экран, после него — то же приложение, что в
+  // боте; «/centers» — о продукте и заявка центра; «/admin» и admin.<домен> — вход в админ-панель. Грузится
+  // лениво — Mini App эту страницу не качает.
 
   let bot = $state('')
   let form = $state({ center: '', name: '', phone: '', students: '', message: '', website: '' })
   let loginBox = $state<HTMLDivElement | null>(null)
   let loginFailed = $state(false)
-  // admin.<домен> — только вход: кабинет владельца, не реклама.
-  const adminHost = location.hostname.startsWith('admin.')
+  const path = location.pathname.replace(/\/+$/, '')
+  const mode: 'login' | 'centers' | 'admin' =
+    location.hostname.startsWith('admin.') || path === '/admin' ? 'admin' : path === '/centers' ? 'centers' : 'login'
 
   // Виджет «Войти через Telegram»: скрипт Telegram рисует кнопку и зовёт onTelegramAuth. Домен сайта должен
   // быть указан боту в @BotFather (/setdomain), иначе виджет пишет «Bot domain invalid».
@@ -68,86 +70,101 @@
   }
 </script>
 
-<div class="page">
-  <header>
-    <Logo size={36} />
-    <nav class="langs">
-      {#each LANGS as l (l.code)}
-        <button class:on={getLang() === l.code} onclick={() => setLang(l.code as Lang)}>{l.code.toUpperCase()}</button>
-      {/each}
-    </nav>
-  </header>
+{#snippet langs()}
+  <nav class="langs">
+    {#each LANGS as l (l.code)}
+      <button class:on={getLang() === l.code} onclick={() => setLang(l.code as Lang)}>{l.code.toUpperCase()}</button>
+    {/each}
+  </nav>
+{/snippet}
 
-  {#snippet login()}
-    {#if bot}
-      <section class="card login">
-        <h2>{t('land.login')}</h2>
+{#snippet widget()}
+  <div class="widget" bind:this={loginBox}></div>
+  {#if loginFailed}<p class="error">{t('land.loginFail')}</p>{/if}
+{/snippet}
+
+{#if mode !== 'centers'}
+  <div class="gate">
+    <div class="gate-card">
+      <header>
+        <Logo size={34} />
+        {@render langs()}
+      </header>
+      <h1>{mode === 'admin' ? t('land.admin') : t('land.title')}</h1>
+      {#if mode === 'login'}<p class="lead">{t('land.lead')}</p>{/if}
+      {#if bot}
+        {@render widget()}
         <p class="hint">{t('land.loginHint')}</p>
-        <div bind:this={loginBox}></div>
-        {#if loginFailed}<p class="error">{t('land.loginFail')}</p>{/if}
-      </section>
-    {/if}
-  {/snippet}
-
-  {#if adminHost}
-    {@render login()}
-  {:else}
-  <section class="hero">
-    <h1>{t('land.title')}</h1>
-    <p class="lead">{t('land.lead')}</p>
-    {#if bot}
-      <a class="btn open" href="https://t.me/{bot}" target="_blank" rel="noopener">{t('land.open')}</a>
-    {/if}
-    <p class="hint">{t('land.free')}</p>
-  </section>
-
-  <div class="cols">
-    <section class="card">
-      <h2>{t('land.students')}</h2>
-      <ul>
-        <li>{t('land.s1')}</li>
-        <li>{t('land.s2')}</li>
-        <li>{t('land.s3')}</li>
-        <li>{t('land.s4')}</li>
-      </ul>
-    </section>
-    <section class="card">
-      <h2>{t('land.centers')}</h2>
-      <ul>
-        <li>{t('land.c1')}</li>
-        <li>{t('land.c2')}</li>
-        <li>{t('land.c3')}</li>
-      </ul>
-    </section>
+        {#if mode === 'login'}
+          <p class="or">{t('land.or')}</p>
+          <a class="btn btn-plain open" href="https://t.me/{bot}" target="_blank" rel="noopener">{t('land.open')}</a>
+        {/if}
+      {/if}
+      {#if mode === 'login'}<a class="more" href="/centers">{t('land.forCenters')}</a>{/if}
+    </div>
+    <footer class="hint">{t('profile.disclaimer')}</footer>
   </div>
+{:else}
+  <div class="page">
+    <header>
+      <a href="/" class="home"><Logo size={36} /></a>
+      {@render langs()}
+    </header>
 
-  {@render login()}
+    <section class="hero">
+      <h1>{t('land.title')}</h1>
+      <p class="lead">{t('land.lead')}</p>
+      {#if bot}
+        <a class="btn open" href="https://t.me/{bot}" target="_blank" rel="noopener">{t('land.open')}</a>
+      {/if}
+      <p class="hint">{t('land.free')}</p>
+    </section>
 
-  <section class="card" id="centers">
-    <h2>{t('land.form')}</h2>
-    {#if status === 'sent'}
-      <p class="ok">{t('land.sent')}</p>
-    {:else}
-      <form onsubmit={send}>
-        <label>{t('land.center')}<input required maxlength="120" bind:value={form.center} /></label>
-        <label>{t('land.name')}<input required maxlength="80" autocomplete="name" bind:value={form.name} /></label>
-        <label>{t('land.phone')}<input required type="tel" maxlength="30" autocomplete="tel" placeholder="+998" bind:value={form.phone} /></label>
-        <label>{t('land.count')}<input type="number" min="0" max="100000" inputmode="numeric" bind:value={form.students} /></label>
-        <label>{t('land.message')}<textarea maxlength="1000" rows="3" bind:value={form.message}></textarea></label>
-        <!-- Ловушка для спам-ботов: человек это поле не видит. -->
-        <input class="trap" tabindex="-1" autocomplete="off" aria-hidden="true" bind:value={form.website} />
-        {#if status === 'bad'}<p class="error">{t('land.bad')}</p>{/if}
-        {#if status === 'many'}<p class="error">{t('land.many')}</p>{/if}
-        {#if status === 'error'}<p class="error">{t('app.error')}</p>{/if}
-        <button class="btn" disabled={status === 'sending'}>{t('land.send')}</button>
-      </form>
-    {/if}
-  </section>
+    <div class="cols">
+      <section class="card">
+        <h2>{t('land.students')}</h2>
+        <ul>
+          <li>{t('land.s1')}</li>
+          <li>{t('land.s2')}</li>
+          <li>{t('land.s3')}</li>
+          <li>{t('land.s4')}</li>
+        </ul>
+      </section>
+      <section class="card">
+        <h2>{t('land.centers')}</h2>
+        <ul>
+          <li>{t('land.c1')}</li>
+          <li>{t('land.c2')}</li>
+          <li>{t('land.c3')}</li>
+        </ul>
+      </section>
+    </div>
 
-  {/if}
+    <section class="card" id="form">
+      <h2>{t('land.form')}</h2>
+      {#if status === 'sent'}
+        <p class="ok">{t('land.sent')}</p>
+      {:else}
+        <form onsubmit={send}>
+          <label>{t('land.center')}<input required maxlength="120" bind:value={form.center} /></label>
+          <label>{t('land.name')}<input required maxlength="80" autocomplete="name" bind:value={form.name} /></label>
+          <label>{t('land.phone')}<input required type="tel" maxlength="30" autocomplete="tel" placeholder="+998" bind:value={form.phone} /></label>
+          <label>{t('land.count')}<input type="number" min="0" max="100000" inputmode="numeric" bind:value={form.students} /></label>
+          <label>{t('land.message')}<textarea maxlength="1000" rows="3" bind:value={form.message}></textarea></label>
+          <!-- Ловушка для спам-ботов: человек это поле не видит. -->
+          <input class="trap" tabindex="-1" autocomplete="off" aria-hidden="true" bind:value={form.website} />
+          {#if status === 'bad'}<p class="error">{t('land.bad')}</p>{/if}
+          {#if status === 'many'}<p class="error">{t('land.many')}</p>{/if}
+          {#if status === 'error'}<p class="error">{t('app.error')}</p>{/if}
+          <button class="btn" disabled={status === 'sending'}>{t('land.send')}</button>
+        </form>
+      {/if}
+    </section>
 
-  <footer class="hint">{t('profile.disclaimer')}</footer>
-</div>
+    <a class="more" href="/">{t('land.back')}</a>
+    <footer class="hint">{t('profile.disclaimer')}</footer>
+  </div>
+{/if}
 
 <style>
   .page {
@@ -183,9 +200,55 @@
     font-weight: 600;
   }
 
-  .login {
+  /* Вход: одна карточка по центру экрана — как заставка приложения. */
+  .gate {
+    min-height: 100vh;
     display: grid;
-    gap: 8px;
+    place-items: center;
+    align-content: center;
+    gap: 16px;
+    padding: 24px 16px;
+  }
+
+  .gate-card {
+    width: 100%;
+    max-width: 460px;
+    display: grid;
+    gap: 14px;
+    background: var(--section);
+    border-radius: 20px;
+    padding: 28px 24px;
+  }
+
+  .gate h1 {
+    font-size: 26px;
+    line-height: 1.2;
+  }
+
+  .gate .lead {
+    font-size: 16px;
+  }
+
+  .widget {
+    min-height: 44px;
+  }
+
+  .or {
+    text-align: center;
+    color: var(--hint);
+    font-size: 14px;
+  }
+
+  .more {
+    color: var(--link);
+    text-decoration: none;
+    font-size: 15px;
+    justify-self: start;
+  }
+
+  .home {
+    color: inherit;
+    text-decoration: none;
   }
 
   .hero {
@@ -207,8 +270,11 @@
   .open {
     display: grid;
     place-items: center;
-    max-width: 320px;
     text-decoration: none;
+  }
+
+  .hero .open {
+    max-width: 320px;
   }
 
   .cols {

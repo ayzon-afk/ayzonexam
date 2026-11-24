@@ -505,4 +505,8 @@ export const ru: Record<Key, string> = {
   'cam.watch': 'Камера: смотрите на экран',
   'cam.denied': 'Нет доступа к камере. Разрешите камеру в браузере и попробуйте снова.',
   'cam.retry': 'Попробовать снова',
+  'land.admin': 'Админ-панель AYZON EXAM',
+  'land.or': 'или',
+  'land.forCenters': 'Учебным центрам →',
+  'land.back': '← Вход',
 }

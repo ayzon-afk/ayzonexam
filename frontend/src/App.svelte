@@ -40,6 +40,9 @@
     return m
   }
 
+  // Админ-панель на сайте: /admin или admin.<домен>, только в браузере (в Mini App — админка из профиля).
+  const adminSite = !inTelegram() && (location.hostname.startsWith('admin.') || ['/admin', '/admin/'].includes(location.pathname))
+
   async function load() {
     status = 'loading'
     try {
@@ -56,9 +59,6 @@
       } else if (target) {
         nav.tab = target.tab
         nav.stack = target.route ? [target.route] : []
-      } else if (me.admin && me.onboarded && location.hostname.startsWith('admin.')) {
-        nav.tab = 'profile'
-        nav.stack = [{ s: 'admin' }] // admin.<домен> — кабинет владельца в браузере
       }
       status = 'ready'
       startBeat()
@@ -113,7 +113,15 @@
     <main class="center"><Loader phrases={false} /></main>
   {/if}
 {:else if status === 'ready' && me}
-  {#if me.onboarded}
+  {#if adminSite && me.admin}
+    {#await import('./screens/admin/AdminSite.svelte')}
+      <main class="center"><Loader phrases={false} /></main>
+    {:then m}
+      <m.default name={me.first_name || me.nickname} onlogout={logout} />
+    {:catch}
+      <main class="center"><p>{t('app.error')}</p></main>
+    {/await}
+  {:else if me.onboarded}
     <Shell {me} onchange={update} onlogout={logout} />
   {:else}
     <Onboarding ondone={onboarded} />

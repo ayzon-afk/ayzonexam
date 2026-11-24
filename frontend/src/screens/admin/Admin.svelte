@@ -1,26 +1,11 @@
 <script lang="ts">
-  import type { Component } from 'svelte'
   import BackBar from '../../components/BackBar.svelte'
   import Skeleton from '../../components/Skeleton.svelte'
   import { back } from '../../lib/nav.svelte'
+  import { sections } from './sections'
 
-  // Админка владельца (этап 17, SPEC «Админка»). Грузится отдельно — ученики её не качают; вход проверяет
-  // сервер по ADMIN_IDS. Тексты — по-русски, только для владельца и помощников (DECISIONS).
-  type Section = { id: string; name: string; load: () => Promise<{ default: Component<any> }> }
-  const sections: Section[] = [
-    { id: 'overview', name: 'Обзор', load: () => import('./Overview.svelte') },
-    { id: 'usage', name: 'Использование', load: () => import('./Usage.svelte') },
-    { id: 'users', name: 'Ученики', load: () => import('./Users.svelte') },
-    { id: 'leads', name: 'Заявки', load: () => import('./Leads.svelte') },
-    { id: 'centers', name: 'Центры', load: () => import('./Centers.svelte') },
-    { id: 'teachers', name: 'Учителя', load: () => import('./Teachers.svelte') },
-    { id: 'payments', name: 'Оплаты', load: () => import('./Payments.svelte') },
-    { id: 'tickets', name: 'Поддержка', load: () => import('./Tickets.svelte') },
-    { id: 'news', name: 'Новости', load: () => import('./News.svelte') },
-    { id: 'tours', name: 'Турнир', load: () => import('./Tours.svelte') },
-    { id: 'tests', name: 'Задания', load: () => import('./Tests.svelte') },
-    { id: 'log', name: 'Журнал', load: () => import('./Log.svelte') },
-  ]
+  // Админка владельца (этап 17, SPEC «Админка») внутри Mini App; на сайте та же — AdminSite.svelte. Вход
+  // проверяет сервер по ADMIN_IDS. Тексты — по-русски, только для владельца и помощников (DECISIONS).
 
   let current = $state('overview')
   const section = $derived(sections.find((s) => s.id === current)!)

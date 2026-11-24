@@ -62,7 +62,7 @@
     <div class="card"><p class="num">{o.repeat}</p><p class="hint">открывали 2+ раза</p></div>
   </div>
 
-  <button class="btn" disabled={busy} onclick={csv}>Скачать CSV</button>
+  <button class="btn csv" disabled={busy} onclick={csv}>Скачать CSV</button>
   {#if note}<p class="hint">{note}</p>{/if}
 
   <div class="table">
@@ -92,6 +92,10 @@
 
   .num {
     font-size: 22px;
+  }
+
+  .csv {
+    max-width: 320px;
   }
 
   .table {
