@@ -16,7 +16,8 @@ permissions:
 jobs:
   images:
     name: Образ ${{ matrix.name }}
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # Только основной репозиторий: публичная копия для жюри (DECISIONS 2026-11-24) образы не публикует
+    if: github.repository == 'ayzon-afk/ayzon-exam' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
