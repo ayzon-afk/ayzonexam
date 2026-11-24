@@ -76,6 +76,9 @@ func run(log *slog.Logger) error {
 	}
 	queue := &writing.Queue{Store: store, AI: checker, Log: log, Workers: cfg.WritingWorkers, Now: time.Now}
 	var b *bot.Bot
+	if cfg.BotMode != config.BotOff && !config.BotTokenLooksValid(cfg.BotToken) {
+		log.Error("BOT_TOKEN не похож на токен от BotFather («123456789:AA…»): вставьте только токен — без «BOT_TOKEN=», пробелов внутри и лишнего текста")
+	}
 	if cfg.BotMode != config.BotOff {
 		b = bot.New(cfg.BotToken, cfg.WebAppURL, log)
 		b.Admins = cfg.Admins

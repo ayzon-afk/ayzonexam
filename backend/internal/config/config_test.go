@@ -84,3 +84,16 @@ func TestAdminsAndPayment(t *testing.T) {
 		t.Fatalf("ник вместо id — ошибка: %v", err)
 	}
 }
+
+func TestSecretsTrimmed(t *testing.T) {
+	fake := "123456789:" + strings.Repeat("A", 35) // не настоящий токен: только вид
+	t.Setenv("BOT_TOKEN", " \""+fake+"\"\n")
+	if got := secret("BOT_TOKEN"); got != fake || !BotTokenLooksValid(got) {
+		t.Fatalf("токен после очистки: %q", got)
+	}
+	for _, bad := range []string{"BOT_TOKEN=" + fake, fake[:15] + " " + fake[15:], ""} {
+		if BotTokenLooksValid(bad) {
+			t.Fatalf("принят неверный токен %q", bad)
+		}
+	}
+}

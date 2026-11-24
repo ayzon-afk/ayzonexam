@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -56,14 +57,14 @@ func FromEnv() (Config, error) {
 	c := Config{
 		Addr:          env("ADDR", ":8080"),
 		DatabaseURL:   os.Getenv("DATABASE_URL"),
-		BotToken:      os.Getenv("BOT_TOKEN"),
+		BotToken:      secret("BOT_TOKEN"),
 		BotMode:       env("BOT_MODE", BotOff),
 		WebAppURL:     os.Getenv("WEBAPP_URL"),
 		PublicURL:     strings.TrimRight(os.Getenv("PUBLIC_URL"), "/"),
 		WebhookSecret: os.Getenv("WEBHOOK_SECRET"),
 		WebDir:        os.Getenv("WEB_DIR"),
 		DevAuth:       os.Getenv("DEV_AUTH") == "1",
-		GeminiAPIKey:  os.Getenv("GEMINI_API_KEY"),
+		GeminiAPIKey:  secret("GEMINI_API_KEY"),
 		GeminiModel:   env("GEMINI_MODEL", DefaultGeminiModel),
 		PayCard:       strings.TrimSpace(os.Getenv("PAY_CARD")),
 		PayCardName:   strings.TrimSpace(os.Getenv("PAY_CARD_NAME")),
@@ -129,6 +130,17 @@ func (c *Config) validate() error {
 	}
 	return nil
 }
+
+// secret — ключ из окружения без пробелов, переносов и кавычек вокруг: их легко вставить вместе с ключом в
+// панели хостинга, а с ними запрос к Telegram или Gemini не собирается.
+func secret(key string) string {
+	return strings.Trim(strings.TrimSpace(os.Getenv(key)), "\"' \t\r\n")
+}
+
+var botTokenRe = regexp.MustCompile(`^[0-9]{5,}:[A-Za-z0-9_-]{30,}$`)
+
+// BotTokenLooksValid — токен похож на выданный BotFather («123456789:AA…»). Значение в логи не пишется.
+func BotTokenLooksValid(token string) bool { return botTokenRe.MatchString(token) }
 
 func env(key, def string) string {
 	if v := os.Getenv(key); v != "" {
