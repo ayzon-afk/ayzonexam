@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { api, ApiError, initAuth, type Me } from './lib/api'
+  import { api, ApiError, dropWebSession, initAuth, webSession, type Me } from './lib/api'
   import { startBeat } from './lib/beat'
-  import { initTelegram, startParam, telegramLanguage } from './lib/telegram'
+  import { initTelegram, inTelegram, startParam, telegramLanguage } from './lib/telegram'
   import { langFromTelegram, ready, setLang, t } from './lib/i18n/index.svelte'
   import { go, nav, routeFromOpen } from './lib/nav.svelte'
   import Loader from './components/Loader.svelte'
@@ -56,10 +56,19 @@
       } else if (target) {
         nav.tab = target.tab
         nav.stack = target.route ? [target.route] : []
+      } else if (me.admin && me.onboarded && location.hostname.startsWith('admin.')) {
+        nav.tab = 'profile'
+        nav.stack = [{ s: 'admin' }] // admin.<домен> — кабинет владельца в браузере
       }
       status = 'ready'
       startBeat()
     } catch (e) {
+      // Пропуск сайта устарел или отозван — снова страница входа, а не «закройте приложение».
+      if (!inTelegram() && webSession() && e instanceof ApiError && e.status === 401) {
+        dropWebSession()
+        status = 'outside'
+        return
+      }
       status = e instanceof ApiError && e.code === 'expired' ? 'expired' : 'error'
     }
   }

@@ -32,6 +32,7 @@ Mars IT × Techstars Startup Week. Проект начат 15.11.2026; вся и
   (владельцу — в бот и в админку → «Заявки»);
 - вопрос дня в боте каждое утро в 9:00 по Ташкенту: ответ кнопкой, затем приглашение в приложение; `/daily` —
   включить снова;
+- вход на сайте через Telegram и кабинет владельца в браузере (`admin.<домен>`) — раздел «Railway»;
 - честный mock: уход из приложения во время Listening, Reading и Writing — сигнал и «вышли N из 3», на третий
   раз часть закрывается и сдаётся;
 
@@ -50,6 +51,10 @@ webhook на свой домен сам.
 | `PUBLIC_URL`, `WEBAPP_URL` | `https://${{RAILWAY_PUBLIC_DOMAIN}}` |
 | `WEBHOOK_SECRET` | случайные 64 символа (`openssl rand -hex 32`) |
 | `BOT_TOKEN`, `GEMINI_API_KEY`, `ADMIN_IDS` | вставляет владелец; остальные — как в `backend/.env.example` |
+
+Вход на сайте: в @BotFather → `/setdomain` → бот → домен сайта (без https://). Кабинет владельца в
+браузере — тот же сервис на адресе `admin.<домен>`: Railway → сервис → Settings → Domains → свой домен и
+`admin.` к нему (DNS — CNAME на адрес, который покажет Railway).
 
 Обновить: `railway up --service ayzon-exam` из корня. Webhook забирает бота у локального `npm run
 dev:server` с `BOT_MODE=polling` и тем же токеном — локально для проверок нужен другой бот.

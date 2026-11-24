@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Logo from '../components/Logo.svelte'
+  import { webLogin } from '../lib/api'
   import { getLang, LANGS, setLang, t, type Lang } from '../lib/i18n/index.svelte'
 
   // Открытая страница вне Telegram (хакатон, DECISIONS 2026-11-24): что это, для кого, вход через бота и
@@ -8,6 +9,35 @@
 
   let bot = $state('')
   let form = $state({ center: '', name: '', phone: '', students: '', message: '', website: '' })
+  let loginBox = $state<HTMLDivElement | null>(null)
+  let loginFailed = $state(false)
+  // admin.<домен> — только вход: кабинет владельца, не реклама.
+  const adminHost = location.hostname.startsWith('admin.')
+
+  // Виджет «Войти через Telegram»: скрипт Telegram рисует кнопку и зовёт onTelegramAuth. Домен сайта должен
+  // быть указан боту в @BotFather (/setdomain), иначе виджет пишет «Bot domain invalid».
+  $effect(() => {
+    if (!bot || !loginBox) return
+    const w = window as unknown as { onTelegramAuth?: (u: Record<string, unknown>) => void }
+    w.onTelegramAuth = async (u) => {
+      loginFailed = false
+      try {
+        await webLogin(u, getLang())
+        location.reload()
+      } catch {
+        loginFailed = true
+      }
+    }
+    const sc = document.createElement('script')
+    sc.async = true
+    sc.src = 'https://telegram.org/js/telegram-widget.js?22'
+    sc.dataset.telegramLogin = bot
+    sc.dataset.size = 'large'
+    sc.dataset.onauth = 'onTelegramAuth(user)'
+    sc.dataset.requestAccess = 'write'
+    loginBox.replaceChildren(sc)
+  })
+
   let status = $state<'' | 'sending' | 'sent' | 'bad' | 'many' | 'error'>('')
 
   onMount(async () => {
@@ -48,6 +78,20 @@
     </nav>
   </header>
 
+  {#snippet login()}
+    {#if bot}
+      <section class="card login">
+        <h2>{t('land.login')}</h2>
+        <p class="hint">{t('land.loginHint')}</p>
+        <div bind:this={loginBox}></div>
+        {#if loginFailed}<p class="error">{t('land.loginFail')}</p>{/if}
+      </section>
+    {/if}
+  {/snippet}
+
+  {#if adminHost}
+    {@render login()}
+  {:else}
   <section class="hero">
     <h1>{t('land.title')}</h1>
     <p class="lead">{t('land.lead')}</p>
@@ -77,6 +121,8 @@
     </section>
   </div>
 
+  {@render login()}
+
   <section class="card" id="centers">
     <h2>{t('land.form')}</h2>
     {#if status === 'sent'}
@@ -97,6 +143,8 @@
       </form>
     {/if}
   </section>
+
+  {/if}
 
   <footer class="hint">{t('profile.disclaimer')}</footer>
 </div>
@@ -133,6 +181,11 @@
     background: var(--section);
     color: var(--text);
     font-weight: 600;
+  }
+
+  .login {
+    display: grid;
+    gap: 8px;
   }
 
   .hero {

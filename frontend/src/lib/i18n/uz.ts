@@ -489,6 +489,9 @@ export const uz = {
   'mock.honest': 'Halol rejim: ilovadan chiqmang. 3 marta chiqsangiz, bo‘lim avtomatik topshiriladi.',
   'mock.warn': 'Siz ilovadan chiqdingiz ({n} / 3). Uchinchi marta bo‘lim avtomatik topshiriladi.',
   'mock.locked': 'Ilovadan 3 marta chiqildi — bo‘lim yopildi.',
+  'land.login': 'Noutbukda kirish',
+  'land.loginHint': 'Telegramdagi akkauntning o‘zi: ballar, reyting va Premium.',
+  'land.loginFail': 'Kirib bo‘lmadi. Qayta urinib ko‘ring.',
 } as const
 
 export type Key = keyof typeof uz

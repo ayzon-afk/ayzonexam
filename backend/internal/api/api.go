@@ -111,6 +111,7 @@ func New(d Deps) *Server {
 	// Открытая страница: без входа (DECISIONS 2026-11-24).
 	mux.HandleFunc("GET /api/info", s.publicInfo)
 	mux.HandleFunc("POST /api/leads", s.createLead)
+	mux.HandleFunc("POST /api/web/login", s.webLogin)
 
 	a("GET /api/me", s.getMe)
 	a("PATCH /api/me", s.patchMe)

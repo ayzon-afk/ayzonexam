@@ -490,4 +490,7 @@ export const en: Record<Key, string> = {
   'mock.honest': 'Honest mode: stay in the app. After 3 exits the part is submitted automatically.',
   'mock.warn': 'You left the app ({n} of 3). On the third time the part is submitted automatically.',
   'mock.locked': 'Three exits from the app — the part is closed.',
+  'land.login': 'Sign in on a laptop',
+  'land.loginHint': 'The same account as in Telegram: scores, ranking and Premium.',
+  'land.loginFail': 'Couldn’t sign in. Please try again.',
 }

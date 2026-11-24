@@ -210,9 +210,45 @@ export class ApiError extends Error {
 
 let auth = ''
 
+// Вход на сайте (DECISIONS 2026-11-24): виджет «Войти через Telegram» → сервер выдаёт подписанный initData,
+// он живёт в браузере сутки и ходит в заголовке, как у Mini App.
+const WEB = 'ayzon.web'
+
+export function webSession(): string {
+  try {
+    return localStorage.getItem(WEB) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+export function dropWebSession() {
+  try {
+    localStorage.removeItem(WEB)
+  } catch {
+    // хранилище недоступно — сессии и не было
+  }
+}
+
+export async function webLogin(widget: Record<string, unknown>, lang: string): Promise<void> {
+  const res = await fetch('/api/web/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ auth: widget, lang }),
+  })
+  if (!res.ok) throw new ApiError(res.status, 'login')
+  const { init_data } = (await res.json()) as { init_data: string }
+  try {
+    localStorage.setItem(WEB, init_data)
+  } catch {
+    // без хранилища вход живёт до перезагрузки
+  }
+  auth = init_data
+}
+
 // Возвращает false, если приложение открыто не в Telegram и войти нечем.
 export async function initAuth(): Promise<boolean> {
-  auth = telegramInitData()
+  auth = telegramInitData() || webSession()
   // В обычном браузере при `npm run dev` сервер с DEV_AUTH=1 выдаёт тестовый вход.
   // В боевую сборку эта ветка не попадает: import.meta.env.DEV там false.
   if (!auth && import.meta.env.DEV) {
