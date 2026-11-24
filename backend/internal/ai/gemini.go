@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -126,8 +127,18 @@ func (g *Gemini) call(ctx context.Context, model string, req generateRequest) (c
 		return content{}, fmt.Errorf("gemini: %w", err)
 	}
 	defer res.Body.Close()
+	raw, err := io.ReadAll(io.LimitReader(res.Body, 4<<20))
+	if err != nil {
+		return content{}, fmt.Errorf("gemini: ответ %d не прочитан", res.StatusCode)
+	}
+	// Кончился дневной лимит ключа (квота «…PerDay…»): проверки ждут новых суток, как с GEMINI_DAILY_LIMIT, —
+	// так бесплатный ключ не превращает проверки в «не удалось», даже если лимит не задан. Поминутный
+	// лимит (PerMinute) — обычная ошибка: очередь повторит через минуту.
+	if res.StatusCode == http.StatusTooManyRequests && bytes.Contains(raw, []byte("PerDay")) {
+		return content{}, ErrQuota
+	}
 	var r generateResponse
-	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
+	if err := json.Unmarshal(raw, &r); err != nil {
 		return content{}, fmt.Errorf("gemini: ответ %d не JSON", res.StatusCode)
 	}
 	if r.Error != nil || res.StatusCode != http.StatusOK {

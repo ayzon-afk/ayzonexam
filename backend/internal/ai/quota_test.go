@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -52,5 +53,21 @@ func TestQuotaStopsRequest(t *testing.T) {
 	g.Take = func(context.Context, string) (bool, error) { return true, nil }
 	if _, err := g.Recognize(context.Background(), []Image{{MIME: "image/jpeg", Data: []byte{1}}}); err != nil || req.Method != http.MethodPost {
 		t.Fatalf("в пределах лимита запрос уходит: %v", err)
+	}
+}
+
+// Ключ без GEMINI_DAILY_LIMIT: Gemini сам отвечает 429 с дневной квотой — это ErrQuota (ждать), а
+// поминутная квота — обычная ошибка (повтор через минуту).
+func TestGeminiDailyQuotaAnswer(t *testing.T) {
+	day := `{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","message":"You exceeded your current quota.",
+		"details":[{"violations":[{"quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}]}}`
+	g, _, _ := fakeGemini(t, 429, day)
+	if _, err := g.Recognize(context.Background(), []Image{{MIME: "image/jpeg", Data: []byte{1}}}); !errors.Is(err, ErrQuota) {
+		t.Fatalf("дневная квота: ждали ErrQuota, получили %v", err)
+	}
+	minute := strings.Replace(day, "PerDay", "PerMinute", 1)
+	g, _, _ = fakeGemini(t, 429, minute)
+	if _, err := g.Recognize(context.Background(), []Image{{MIME: "image/jpeg", Data: []byte{1}}}); err == nil || errors.Is(err, ErrQuota) {
+		t.Fatalf("поминутная квота — обычная ошибка: %v", err)
 	}
 }
