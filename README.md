@@ -24,6 +24,26 @@ Mars IT × Techstars Startup Week. Проект начат 15.11.2026; вся и
 **На хакатоне сделано:**
 
 - публичный репозиторий для жюри с полной историей;
+- деплой на Railway: https://ayzon-exam-production.up.railway.app (раздел «Railway»);
+
+## Railway
+
+Проект `ayzon-exam` на Railway: сервис `ayzon-exam` из `deploy/Dockerfile` (переменная
+`RAILWAY_DOCKERFILE_PATH`) и PostgreSQL от Railway. Миграции сервер делает сам при старте, бот ставит
+webhook на свой домен сам.
+
+| Переменная | Значение |
+|---|---|
+| `RAILWAY_DOCKERFILE_PATH` | `deploy/Dockerfile` — без неё Railway собирает корень как Node-проект |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` — ссылка на базу Railway |
+| `PORT`, `ADDR` | `8080`, `:8080` |
+| `BOT_MODE` | `webhook` |
+| `PUBLIC_URL`, `WEBAPP_URL` | `https://${{RAILWAY_PUBLIC_DOMAIN}}` |
+| `WEBHOOK_SECRET` | случайные 64 символа (`openssl rand -hex 32`) |
+| `BOT_TOKEN`, `GEMINI_API_KEY`, `ADMIN_IDS` | вставляет владелец; остальные — как в `backend/.env.example` |
+
+Обновить: `railway up --service ayzon-exam` из корня. Webhook забирает бота у локального `npm run
+dev:server` с `BOT_MODE=polling` и тем же токеном — локально для проверок нужен другой бот.
 
 ## Что нужно на компьютере
 
