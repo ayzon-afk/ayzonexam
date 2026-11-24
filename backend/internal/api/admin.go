@@ -89,6 +89,7 @@ func (s *server) adminOverview(w http.ResponseWriter, r *http.Request, _ users.U
 		ActiveWeek   int     `json:"active_week"`
 		Paying       int     `json:"paying"`
 		MoneyMonth   int64   `json:"money_month"`
+		MoneyTotal   int64   `json:"money_total"` // за всё время: ученики и центры
 		Pending      int     `json:"pending_payments"`
 		WritingDay   int     `json:"writing_day"`
 		WritingMonth int     `json:"writing_month"`
@@ -108,6 +109,8 @@ func (s *server) adminOverview(w http.ResponseWriter, r *http.Request, _ users.U
 			AND user_id IN (SELECT id FROM users WHERE premium_until > $2)),
 		(SELECT coalesce(sum(amount), 0) FROM payments WHERE status = 'confirmed' AND decided_at >= $3)
 			+ (SELECT coalesce(sum(amount), 0) FROM center_payments WHERE created_at >= $3),
+		(SELECT coalesce(sum(amount), 0) FROM payments WHERE status = 'confirmed')
+			+ (SELECT coalesce(sum(amount), 0) FROM center_payments),
 		(SELECT count(*) FROM payments WHERE status = 'pending'),
 		(SELECT count(*) FROM writing_checks WHERE created_at >= $1 AND status = 'done'),
 		(SELECT count(*) FROM writing_checks WHERE created_at >= $3 AND status = 'done'),
@@ -115,7 +118,7 @@ func (s *server) adminOverview(w http.ResponseWriter, r *http.Request, _ users.U
 		(SELECT count(*) FROM speaking_checks WHERE created_at >= $3 AND status = 'done'),
 		(SELECT count(*) FROM tickets WHERE status = 'open'),
 		(SELECT count(*) FROM centers WHERE active)`, day, now, month).
-		Scan(&o.Users, &o.NewDay, &o.NewWeek, &o.ActiveDay, &o.ActiveWeek, &o.Paying, &o.MoneyMonth, &o.Pending,
+		Scan(&o.Users, &o.NewDay, &o.NewWeek, &o.ActiveDay, &o.ActiveWeek, &o.Paying, &o.MoneyMonth, &o.MoneyTotal, &o.Pending,
 			&o.WritingDay, &o.WritingMonth, &o.SpeakDay, &o.SpeakMonth, &o.OpenTickets, &o.Centers)
 	if err != nil {
 		s.fail(w, r, err)

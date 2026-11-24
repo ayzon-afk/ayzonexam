@@ -478,7 +478,7 @@ func TestNewsSupportAdmin(t *testing.T) {
 	if r := do(t, h, "GET", "/api/admin/overview", user, ""); r.code != 404 {
 		t.Fatalf("админка ученику: %d", r.code)
 	}
-	if r := do(t, h, "GET", "/api/admin/overview", admin, ""); r.code != 200 || r.body["users"] == nil {
+	if r := do(t, h, "GET", "/api/admin/overview", admin, ""); r.code != 200 || r.body["users"] == nil || r.body["money_total"] == nil {
 		t.Fatalf("обзор: %d %s", r.code, r.raw)
 	}
 	p := do(t, h, "POST", "/api/admin/news", admin, `{"tag":"tip","title":"Совет","body":"Пишите 250+ слов"}`)

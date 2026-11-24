@@ -28,6 +28,7 @@
     <div class="card"><p class="num">{o.new_day} / {o.new_week}</p><p class="hint">новых день / неделя</p></div>
     <div class="card"><p class="num">{o.paying}</p><p class="hint">платящих сейчас</p></div>
     <div class="card"><p class="num">{sum(o.money_month)}</p><p class="hint">сум за месяц (ученики и центры)</p></div>
+    <div class="card"><p class="num">{sum(o.money_total)}</p><p class="hint">сум за всё время</p></div>
     <div class="card"><p class="num">{o.centers}</p><p class="hint">центров</p></div>
     <div class="card"><p class="num">{o.writing_day} / {o.writing_month}</p><p class="hint">проверок Writing день / месяц</p></div>
     <div class="card"><p class="num">{o.speaking_day} / {o.speaking_month}</p><p class="hint">проверок Speaking день / месяц</p></div>
