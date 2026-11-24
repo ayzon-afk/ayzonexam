@@ -96,7 +96,6 @@ export const en: Record<Key, string> = {
 
   'profile.theme': 'Appearance',
   'theme.telegram': 'Like Telegram',
-  'theme.system': 'System',
   'theme.light': 'Light',
   'theme.dark': 'Dark',
   'logout.title': 'Log out',

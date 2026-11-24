@@ -96,7 +96,6 @@ export const ru: Record<Key, string> = {
 
   'profile.theme': 'Оформление',
   'theme.telegram': 'Как в Telegram',
-  'theme.system': 'Как в системе',
   'theme.light': 'Светлая',
   'theme.dark': 'Тёмная',
   'logout.title': 'Выйти',

@@ -57,9 +57,10 @@
   }
 
   const telegram = inTelegram()
-  let theme = $state<Theme>(loadTheme())
+  // На сайте «как в системе» — светлая (lib/theme), поэтому выбор только из двух.
+  let theme = $state<Theme>(!telegram && loadTheme() === 'auto' ? 'light' : loadTheme())
   const themes: { id: Theme; label: Key }[] = [
-    { id: 'auto', label: telegram ? 'theme.telegram' : 'theme.system' },
+    ...(telegram ? [{ id: 'auto' as Theme, label: 'theme.telegram' as Key }] : []),
     { id: 'light', label: 'theme.light' },
     { id: 'dark', label: 'theme.dark' },
   ]

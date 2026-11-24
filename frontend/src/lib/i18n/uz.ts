@@ -95,7 +95,6 @@ export const uz = {
 
   'profile.theme': 'Ko‘rinish',
   'theme.telegram': 'Telegramdagidek',
-  'theme.system': 'Tizimdagidek',
   'theme.light': 'Yorug‘',
   'theme.dark': 'Qorong‘i',
   'logout.title': 'Chiqish',
