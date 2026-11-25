@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build && node scripts/size.mjs",
     "check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
-    "test": "vitest run"
+    "test": "vitest run",
+    "layout": "node scripts/layout.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

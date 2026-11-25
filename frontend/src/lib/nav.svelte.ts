@@ -19,6 +19,7 @@ export type Route =
   | { s: 'center'; id: number }
   | { s: 'centers' }
   | { s: 'centerRequests' }
+  | { s: 'cabinet' }
   | { s: 'practice'; part: Part }
   | { s: 'test'; from: TestSource }
   | { s: 'attempt'; id: number }

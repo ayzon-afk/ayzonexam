@@ -102,6 +102,17 @@
     </section>
 
     <section class="card stack">
+      <h2>Кабинет центра</h2>
+      <p class="mono">{location.origin}/cabinet</p>
+      <p class="hint">
+        Отправьте эту ссылку центру. Войти может только тот, кому вы дали роль «Аккаунт центра» или «Учитель» (раздел
+        «Ученики» → ученик этого центра). Аккаунт центра видит учеников с баллами, заявки, ссылку, тариф и оплаты; учитель —
+        без денег и без управления. Действия центра пишутся в «Журнал».
+      </p>
+      {#if !edit.staff.some((s: Row) => s.role === 'admin')}<p class="error">У центра ещё нет аккаунта центра — кабинет никому не откроется.</p>{/if}
+    </section>
+
+    <section class="card stack">
       <h2>Тариф: {edit.seats} учеников, оплачено до {edit.paid_until ? new Date(edit.paid_until).toLocaleDateString('ru-RU') : '—'}</h2>
       <label>Учеников <input type="number" min="1" bind:value={seats} /></label>
       <label>Сумма, сум <input type="number" min="1" bind:value={amount} /></label>

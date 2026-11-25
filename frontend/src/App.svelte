@@ -41,7 +41,10 @@
   }
 
   // Админ-панель на сайте: /admin или admin.<домен>, только в браузере (в Mini App — админка из профиля).
-  const adminSite = !inTelegram() && (location.hostname.startsWith('admin.') || ['/admin', '/admin/'].includes(location.pathname))
+  // Кабинет центра — так же: /cabinet или center.<домен> (DECISIONS 2026-11-25).
+  const sitePath = (name: string) => [`/${name}`, `/${name}/`].includes(location.pathname)
+  const adminSite = !inTelegram() && (location.hostname.startsWith('admin.') || sitePath('admin'))
+  const cabinetSite = !inTelegram() && !adminSite && (location.hostname.startsWith('center.') || sitePath('cabinet'))
 
   async function load() {
     status = 'loading'
@@ -118,6 +121,14 @@
       <main class="center"><Loader phrases={false} /></main>
     {:then m}
       <m.default name={me.first_name || me.nickname} onlogout={logout} />
+    {:catch}
+      <main class="center"><p>{t('app.error')}</p></main>
+    {/await}
+  {:else if cabinetSite}
+    {#await import('./screens/cabinet/CabinetSite.svelte')}
+      <main class="center"><Loader phrases={false} /></main>
+    {:then m}
+      <m.default {me} onlogout={logout} />
     {:catch}
       <main class="center"><p>{t('app.error')}</p></main>
     {/await}

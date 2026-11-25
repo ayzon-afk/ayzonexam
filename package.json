@@ -1,9 +1,9 @@
 {
   "name": "ayzon-exam",
   "private": true,
-  "description": "Проверка всего проекта из корня: сервер на Go (тесты на встроенном PostgreSQL), интерфейс (тесты, типы, бюджет веса)",
+  "description": "Проверка всего проекта из корня: сервер на Go (тесты на встроенном PostgreSQL), интерфейс (тесты, типы, бюджет веса, вёрстка в Chrome)",
   "scripts": {
-    "test": "node scripts/go.mjs test ./... && npm --prefix frontend test && npm --prefix frontend run build",
+    "test": "node scripts/go.mjs test ./... && npm --prefix frontend test && npm --prefix frontend run build && npm --prefix frontend run layout",
     "lint": "node scripts/go.mjs fmt-check && node scripts/go.mjs vet ./... && npm --prefix frontend run check",
     "dev:db": "node scripts/go.mjs run ./cmd/devdb",
     "dev:server": "node scripts/go.mjs run ./cmd/server",

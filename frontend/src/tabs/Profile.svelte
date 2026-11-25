@@ -177,8 +177,8 @@
   </li>
   {#if me.center?.status === 'member' && me.center.role}
     <li>
-      <button class="row" onclick={() => go({ s: 'centerRequests' })}>
-        <span class="grow">{t('center.requests')}</span>
+      <button class="row" onclick={() => go({ s: 'cabinet' })}>
+        <span class="grow">{t('cab.title')}<span class="tag">{t('cab.openSub')}</span></span>
         <span class="chev" aria-hidden="true">›</span>
       </button>
     </li>

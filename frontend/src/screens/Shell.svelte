@@ -24,7 +24,8 @@
     tournament: () => import('./Tournament.svelte'),
     center: () => import('./center/Center.svelte'),
     centers: () => import('./center/Centers.svelte'),
-    centerRequests: () => import('./center/Requests.svelte'),
+    centerRequests: () => import('./cabinet/Cabinet.svelte'),
+    cabinet: () => import('./cabinet/Cabinet.svelte'),
     practice: () => import('./exam/Practice.svelte'),
     test: () => import('./exam/Test.svelte'),
     attempt: () => import('./exam/Attempt.svelte'),
@@ -52,9 +53,14 @@
   }
 
   // Через пару секунд после открытия — подгрузить экраны заранее: первый экран не ждёт их, а переходы
-  // потом мгновенные. Админку ученики не качают. Неудача не страшна — экран загрузится при нажатии.
+  // потом мгновенные. Админку и кабинет центра ученики не качают. Неудача не страшна — экран загрузится при нажатии.
+  const staffOnly: Record<string, () => boolean> = {
+    admin: () => me.admin,
+    cabinet: () => !!me.center?.role,
+    centerRequests: () => !!me.center?.role,
+  }
   onMount(() => {
-    const id = setTimeout(() => Object.keys(screens).forEach((s) => (s !== 'admin' || me.admin) && load(s).catch(() => {})), 2000)
+    const id = setTimeout(() => Object.keys(screens).forEach((s) => (staffOnly[s]?.() ?? true) && load(s).catch(() => {})), 2000)
     return () => clearTimeout(id)
   })
 

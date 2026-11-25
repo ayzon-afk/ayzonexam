@@ -5,16 +5,22 @@
   import { getLang, LANGS, setLang, t, type Lang } from '../lib/i18n/index.svelte'
 
   // Сайт вне Telegram (DECISIONS 2026-11-24): «/» — вход на весь экран, после него — то же приложение, что в
-  // боте; «/centers» — о продукте и заявка центра; «/admin» и admin.<домен> — вход в админ-панель. Грузится
-  // лениво — Mini App эту страницу не качает.
+  // боте; «/centers» — о продукте и заявка центра; «/admin» и admin.<домен> — вход в админ-панель;
+  // «/cabinet» и center.<домен> — вход в кабинет центра. Грузится лениво — Mini App эту страницу не качает.
 
   let bot = $state('')
   let form = $state({ center: '', name: '', phone: '', students: '', message: '', website: '' })
   let loginBox = $state<HTMLDivElement | null>(null)
   let loginFailed = $state(false)
   const path = location.pathname.replace(/\/+$/, '')
-  const mode: 'login' | 'centers' | 'admin' =
-    location.hostname.startsWith('admin.') || path === '/admin' ? 'admin' : path === '/centers' ? 'centers' : 'login'
+  const mode: 'login' | 'centers' | 'admin' | 'cabinet' =
+    location.hostname.startsWith('admin.') || path === '/admin'
+      ? 'admin'
+      : location.hostname.startsWith('center.') || path === '/cabinet'
+        ? 'cabinet'
+        : path === '/centers'
+          ? 'centers'
+          : 'login'
 
   // Виджет «Войти через Telegram»: скрипт Telegram рисует кнопку и зовёт onTelegramAuth. Домен сайта должен
   // быть указан боту в @BotFather (/setdomain), иначе виджет пишет «Bot domain invalid».
@@ -90,17 +96,18 @@
         <Logo size={34} />
         {@render langs()}
       </header>
-      <h1>{mode === 'admin' ? t('land.admin') : t('land.title')}</h1>
+      <h1>{mode === 'admin' ? t('land.admin') : mode === 'cabinet' ? t('land.cabinet') : t('land.title')}</h1>
       {#if mode === 'login'}<p class="lead">{t('land.lead')}</p>{/if}
       {#if bot}
         {@render widget()}
-        <p class="hint">{t('land.loginHint')}</p>
+        <p class="hint">{mode === 'cabinet' ? t('land.cabinetHint') : t('land.loginHint')}</p>
         {#if mode === 'login'}
           <p class="or">{t('land.or')}</p>
           <a class="btn btn-plain open" href="https://t.me/{bot}" target="_blank" rel="noopener">{t('land.open')}</a>
         {/if}
       {/if}
       {#if mode === 'login'}<a class="more" href="/centers">{t('land.forCenters')}</a>{/if}
+      {#if mode === 'cabinet'}<a class="more" href="/centers">{t('land.forCenters')}</a>{/if}
     </div>
     <footer class="hint">{t('profile.disclaimer')}</footer>
   </div>
@@ -177,9 +184,10 @@
 
   header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 8px 12px;
   }
 
   .langs {
@@ -214,6 +222,7 @@
     width: 100%;
     max-width: 460px;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 14px;
     background: var(--section);
     border-radius: 20px;
@@ -333,5 +342,16 @@
 
   footer {
     text-align: center;
+  }
+
+  /* Узкий телефон (320–379): карточка входа — с меньшими полями, чтобы заголовок и кнопки не теснились. */
+  @media (max-width: 379px) {
+    .gate-card {
+      padding: 22px 16px;
+    }
+
+    .gate h1 {
+      font-size: 23px;
+    }
   }
 </style>

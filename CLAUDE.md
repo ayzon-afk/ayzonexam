@@ -24,7 +24,8 @@ Telegram Mini App для подготовки к IELTS: mock-экзамены, A
 - `frontend/` — Svelte 5 + Vite, SPA без роутера: `screens/` (онбординг, оболочка, экраны поверх вкладок
   по папкам `exam`, `mock`, `speaking`, `social`, `center`, `news`, `writing`, `admin`), `screens/demo/`
   (ещё не подключённое: группы, учитель, взаимная проверка), `tabs/`, `components/`, `lib/` (API,
-  Telegram, i18n, навигация `nav.svelte.ts`, запись голоса, турнир, демо-данные `demo.ts`).
+  Telegram, i18n, навигация `nav.svelte.ts`, запись голоса, турнир, демо-данные `demo.ts`), `screens/cabinet/`
+  (кабинет центра: сайт `/cabinet` и экран в Mini App, API — `internal/api/cabinet.go`).
   Этап подключает экран к серверу — убирает его данные из `lib/demo.ts` и пометку `<Demo />`.
 - `deploy/` — сервер: образ, compose рядом с ayzonstock, служба копий и наблюдения (`backup/backup.sh`),
   обновление с откатом и восстановление; как пользоваться — README, «Сервер».
@@ -34,7 +35,8 @@ Telegram Mini App для подготовки к IELTS: mock-экзамены, A
 
 | Что | Команда |
 |---|---|
-| Все тесты: Go на встроенном PostgreSQL, интерфейс, сборка с бюджетом веса | `npm test` |
+| Все тесты: Go на встроенном PostgreSQL, интерфейс, сборка с бюджетом веса, вёрстка в Chrome | `npm test` |
+| Только вёрстка (после сборки); `cabinet` — фильтр по имени, `--shots папка` — снимки | `npm --prefix frontend run layout` |
 | gofmt, go vet, svelte-check | `npm run lint` |
 | Локальная база (localhost:5433, данные в `backend/.devdb`) | `npm run dev:db` |
 | Сервер (читает `backend/.env`) | `npm run dev:server` |
@@ -68,3 +70,5 @@ Telegram Mini App для подготовки к IELTS: mock-экзамены, A
   (`netsh int ipv4 show excludedportrange protocol=tcp`). Упавший тест может оставить свою базу
   (`ayzonexam-pg…` во временных файлах) — следующий запуск пишет «already listening».
 - Правила рейтинга и турнира одинаковые на сервере и в интерфейсе: `rating.TourStart` ↔ `lib/tournament.ts`.
+- Новый экран — добавить случай в `frontend/scripts/layout.mjs` (и ответы API в `layout/fixtures.mjs`), иначе
+  его вёрстку никто не проверит. Сетка с длинным текстом — `minmax(0, 1fr)`, иначе она раздвигает экран.

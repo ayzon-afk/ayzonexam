@@ -63,7 +63,7 @@
   {#if status === 'member'}
     <p class="card mine">{t('center.yours')}</p>
     {#if me.center?.role}
-      <button class="btn btn-plain" onclick={() => go({ s: 'centerRequests' })}>{t('center.requests')}</button>
+      <button class="btn btn-plain" onclick={() => go({ s: 'cabinet' })}>{t('cab.title')}</button>
     {/if}
   {:else if status === 'pending'}
     <p class="card mine">{t('center.requested')}</p>

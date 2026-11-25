@@ -72,6 +72,11 @@
   box-sizing: border-box;
 }
 
+/* Длинное слово без пробелов (ник «Shahzoda_Abdurakhmonova», ссылка) переносится, а не вылезает за экран. */
+body {
+  overflow-wrap: break-word;
+}
+
 html,
 body {
   margin: 0;
@@ -170,6 +175,18 @@ input[type='date'] {
 .grow {
   flex: 1;
   min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Значение справа в строке («Мой центр — Cambridge Learning…»): не шире половины строки, лишнее —
+   многоточием, чтобы подпись слева не сжималась в столбик. */
+.row > .hint {
+  flex: 0 1 auto;
+  max-width: 55%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tag {
@@ -304,6 +321,7 @@ html[data-nav='back']::view-transition-new(root) {
 
 .stack {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
