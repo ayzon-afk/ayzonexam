@@ -77,7 +77,7 @@
           <Avatar name={c.name} />
           <span class="grow">
             <strong>{c.name}</strong>
-            <span class="tag">{t('center.students', { n: c.students })}</span>
+            <span class="tag">{c.kind === 'teacher' ? t('cab.roleTeacher') + ' · ' : ''}{t('center.students', { n: c.students })}</span>
           </span>
           <span class="chev" aria-hidden="true">›</span>
         </button>
@@ -85,6 +85,9 @@
     {/each}
   </ul>
 {/if}
+
+<!-- Центр или учитель — заявка на свой кабинет (DECISIONS 2026-11-25). -->
+<button class="btn btn-plain" onclick={() => go({ s: 'apply', kind: 'center' })}>{t('apply.cta')}</button>
 
 <style>
   h2 {

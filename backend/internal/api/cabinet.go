@@ -2,12 +2,14 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"ayzonexam/internal/billing"
 	"ayzonexam/internal/rating"
 	"ayzonexam/internal/users"
 )
@@ -52,6 +54,7 @@ func (s *server) getCabinet(w http.ResponseWriter, r *http.Request, u users.User
 	var c struct {
 		ID        int64      `json:"id"`
 		Name      string     `json:"name"`
+		Kind      string     `json:"kind"` // center, teacher — учитель без центра
 		City      string     `json:"city"`
 		About     string     `json:"about"`
 		Code      string     `json:"invite_code"`
@@ -67,12 +70,12 @@ func (s *server) getCabinet(w http.ResponseWriter, r *http.Request, u users.User
 		Centers   int        `json:"centers"`
 		Delta     int        `json:"delta"`
 	}
-	err := s.DB.QueryRow(ctx, `SELECT c.id, c.name, c.city, c.about, c.invite_code, c.seats, c.paid_until, c.active,
+	err := s.DB.QueryRow(ctx, `SELECT c.id, c.name, c.kind, c.city, c.about, c.invite_code, c.seats, c.paid_until, c.active,
 			(SELECT count(*) FROM users m WHERE m.center_id = c.id AND m.center_status = 'member'),
 			(SELECT count(*) FROM users m WHERE m.center_id = c.id AND m.center_status = 'pending'),
 			(SELECT count(*) FROM users m WHERE m.center_id = c.id AND m.center_status = 'member' AND m.seen_at > $2::timestamptz - interval '7 days')
 		FROM centers c WHERE c.id = $1`, cid, s.Now()).
-		Scan(&c.ID, &c.Name, &c.City, &c.About, &c.Code, &c.Seats, &c.PaidUntil, &c.Active, &c.Students, &c.Pending, &c.Week)
+		Scan(&c.ID, &c.Name, &c.Kind, &c.City, &c.About, &c.Code, &c.Seats, &c.PaidUntil, &c.Active, &c.Students, &c.Pending, &c.Week)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -109,6 +112,13 @@ func (s *server) getCabinet(w http.ResponseWriter, r *http.Request, u users.User
 		}
 		rows.Close()
 		out["payments"] = pays
+		// Продление самим центром (DECISIONS 2026-11-25): карта, код для комментария, заявка на проверке.
+		order, err := s.billing.PendingCenterOrder(ctx, cid)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		out["pay"] = map[string]any{"card": s.PayCard, "holder": s.PayCardName, "code": billing.CenterPayCode(cid), "pending": order}
 	} else {
 		// Учителю — без денег: тариф и оплаты видит аккаунт центра.
 		c.Seats, c.PaidUntil = 0, nil
@@ -205,6 +215,54 @@ func (s *server) cabinetRole(w http.ResponseWriter, r *http.Request, u users.Use
 	}
 	s.audit(r.Context(), u.TelegramID, "cabinet.teacher", "user:"+strconv.FormatInt(id, 10), map[string]any{"center_id": cid, "teacher": b.Teacher})
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// cabinetOrder — аккаунт центра продлевает тариф сам: места, месяцы и скрин перевода. Владельцу — скрин с
+// кнопками «Подтвердить» и «Отказать»; тариф продлится после подтверждения.
+func (s *server) cabinetOrder(w http.ResponseWriter, r *http.Request, u users.User) {
+	cid, ok := cabinetAdmin(w, u)
+	if !ok {
+		return
+	}
+	if s.PayCard == "" {
+		writeError(w, http.StatusConflict, "no_card")
+		return
+	}
+	if code := parseForm(w, r, maxImageBytes+64<<10); code != "" {
+		writeError(w, http.StatusBadRequest, code)
+		return
+	}
+	defer r.MultipartForm.RemoveAll()
+	f := r.MultipartForm.Value
+	seats, _ := strconv.Atoi(first(f["seats"]))
+	months, _ := strconv.Atoi(first(f["months"]))
+	fhs := r.MultipartForm.File["screenshot"]
+	if len(fhs) != 1 {
+		writeError(w, http.StatusBadRequest, "bad_image")
+		return
+	}
+	img, code := readImage(fhs[0])
+	if code != "" {
+		writeError(w, http.StatusBadRequest, code)
+		return
+	}
+	ctx := r.Context()
+	o, err := s.billing.SubmitCenterOrder(ctx, cid, u.ID, seats, months, img.MIME, img.Data, s.Now())
+	switch {
+	case errors.Is(err, billing.ErrPlan):
+		writeError(w, http.StatusBadRequest, "bad_plan")
+		return
+	case errors.Is(err, billing.ErrPending):
+		writeError(w, http.StatusConflict, "pending")
+		return
+	case err != nil:
+		s.fail(w, r, err)
+		return
+	}
+	s.audit(ctx, u.TelegramID, "cabinet.order", centerTarget(cid), map[string]any{"order": o.ID, "seats": seats, "months": months, "amount": o.Amount})
+	s.toAdmins(ctx, fmt.Sprintf("🏫 Оплата центра #%d\n%s · %d мест × %d мес. · %s сум\nКод: %s · отправил %s\nТариф продлится после подтверждения.",
+		o.ID, o.Center, seats, months, money(o.Amount), billing.CenterPayCode(cid), u.Nickname), &Photo{MIME: img.MIME, Data: img.Data}, orderButtons(o.ID), "center_order", o.ID)
+	s.getCabinet(w, r, u)
 }
 
 // cabinetDone — ответ на ошибку действия над учеником; true — ошибки нет.

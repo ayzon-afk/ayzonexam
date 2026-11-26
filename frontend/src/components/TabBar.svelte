@@ -100,7 +100,7 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
-      padding: 24px 12px;
+      padding: calc(var(--safe-top) + 24px) 12px 24px;
       border-top: 0;
       border-right: 1px solid var(--separator);
     }

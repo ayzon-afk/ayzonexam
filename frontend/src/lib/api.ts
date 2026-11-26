@@ -1,3 +1,4 @@
+import type { City } from './cities'
 import { initData as telegramInitData } from './telegram'
 import type { Lang } from './i18n/index.svelte'
 
@@ -13,7 +14,9 @@ export type Plan = {
   prices: Record<'month' | 'month_discount' | 'quarter' | 'mock', number>
 }
 
-export type MyCenter = { id: number; name: string; status: 'pending' | 'member'; role: 'admin' | 'teacher' | null }
+// kind: teacher — учитель без центра (тот же кабинет, ссылка и тариф).
+export type CenterKind = 'center' | 'teacher'
+export type MyCenter = { id: number; name: string; kind: CenterKind; status: 'pending' | 'member'; role: 'admin' | 'teacher' | null }
 
 export type Me = {
   nickname: string
@@ -23,7 +26,7 @@ export type Me = {
   goal_band: number | null
   exam_date: string | null // ГГГГ-ММ-ДД
   onboarded: boolean
-  city: '' | 'tashkent' | 'other'
+  city: '' | City
   center: MyCenter | null
   bot: string // @username бота: ссылки-приглашения
   admin: boolean
@@ -32,7 +35,7 @@ export type Me = {
   invite: string
 }
 
-export type MePatch = Partial<Pick<Me, 'lang' | 'goal_band' | 'exam_date' | 'onboarded' | 'nickname'>> & { city?: 'tashkent' | 'other' }
+export type MePatch = Partial<Pick<Me, 'lang' | 'goal_band' | 'exam_date' | 'onboarded' | 'nickname'>> & { city?: City }
 
 export type Task = 'task1' | 'task2'
 export type CheckStatus = 'queued' | 'processing' | 'done' | 'failed'
@@ -96,7 +99,10 @@ export type Scope = 'city' | 'center' | 'friends' | 'country'
 export type RatingRow = { place: number; nickname: string; avatar: string; center: string; band: number; delta: number; me: boolean }
 export type Board = { rows: RatingRow[]; mine: RatingRow | null; total: number }
 export type CenterRow = { id: number; place: number; name: string; city: string; avg: number; scored: number; students: number; delta: number }
-export type CenterInfo = { id: number; name: string; city: string; about: string; students: number; avg: number | null; place: number | null; top: RatingRow[] | null }
+// Заявка «Добавить свой центр / Я учитель» (backend/internal/api/apply.go).
+export type Application = { id: number; kind: CenterKind; name: string; city: string; students: number; status: 'pending' | 'approved' | 'rejected'; created_at: string }
+export type ApplyBody = { kind: CenterKind; name: string; city: string; students: number; phone: string; about: string }
+export type CenterInfo = { id: number; name: string; kind: CenterKind; city: string; about: string; students: number; avg: number | null; place: number | null; top: RatingRow[] | null }
 export type Pending = { user_id: number; nickname: string; avatar: string; since: string }
 export type TourState = {
   id: number
@@ -123,7 +129,13 @@ export type Stats = {
 }
 
 // Полный mock (этап 18).
-export type PartState = { state: 'todo' | 'running' | 'checking' | 'done'; band: number | null; attempt_id?: number; ends_at?: string }
+export type PartState = {
+  state: 'todo' | 'running' | 'checking' | 'done'
+  band: number | null
+  attempt_id?: number
+  ends_at?: string
+  violations: number // нарушения честного режима; с 3 часть не в рейтинге
+}
 export type MockPart = 'listening' | 'reading' | 'writing' | 'speaking'
 export type MockCheck = { id: number; task: string; status: CheckStatus; band: number | null }
 export type MockView = {
@@ -316,6 +328,8 @@ export const api = {
   rating: (scope: Scope) => get<Board>(`/api/rating?scope=${scope}`),
   centerRating: () => get<{ centers: CenterRow[]; mine: number | null }>('/api/rating/centers'),
   centers: () => get<{ centers: CenterInfo[] }>('/api/centers'),
+  myApplication: () => get<{ application: Application | null }>('/api/apply'),
+  apply: (body: ApplyBody) => post<{ application: Application }>('/api/apply', body),
   center: (id: number) => get<{ center: CenterInfo; status: 'pending' | 'member' | null }>(`/api/centers/${id}`),
   joinCenter: (code: string) => post<Me>('/api/centers/join', { code }),
   requestCenter: (id: number) => post<Me>(`/api/centers/${id}/request`),
@@ -331,12 +345,14 @@ export const api = {
   mock: (id: number) => get<MockView>(`/api/mock/${id}`),
   mockPart: (id: number, kind: 'listening' | 'reading') => post<Started>(`/api/mock/${id}/part`, { kind }),
   mockWritingStart: (id: number) => post<{ ends_at: string; task1: MockPrompt | null; task2: MockPrompt }>(`/api/mock/${id}/writing/start`),
-  mockWriting: (id: number, task1: string, task2: string) => post<MockView>(`/api/mock/${id}/writing`, { task1, task2 }),
+  mockWriting: (id: number, task1: string, task2: string, violations: number) =>
+    post<MockView>(`/api/mock/${id}/writing`, { task1, task2, violations }),
   mockSpeakingStart: (id: number) => post<{ ends_at: string; questions: { part: number; text: string }[] }>(`/api/mock/${id}/speaking/start`),
-  mockSpeaking: (id: number, audio: Blob[], seconds: number) => {
+  mockSpeaking: (id: number, audio: Blob[], seconds: number, violations: number) => {
     const f = new FormData()
     audio.forEach((a, i) => f.append(`audio${i}`, a, `part${i + 1}`))
     f.append('seconds', String(Math.round(seconds)))
+    f.append('violations', String(violations))
     return post<MockView>(`/api/mock/${id}/speaking`, f)
   },
 

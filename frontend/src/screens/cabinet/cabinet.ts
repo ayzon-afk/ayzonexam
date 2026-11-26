@@ -1,7 +1,7 @@
 // Кабинет центра (backend/internal/api/cabinet.go): запросы, разделы и расчёты для его экранов.
 // Отдельный модуль, а не lib/api.ts: ученики его не качают.
 import type { Component } from 'svelte'
-import { request, type Me } from '../../lib/api'
+import { request, type CenterKind, type Me } from '../../lib/api'
 import type { Key } from '../../lib/i18n/index.svelte'
 
 export type Role = 'admin' | 'teacher'
@@ -10,6 +10,7 @@ export type PartKind = 'listening' | 'reading' | 'writing' | 'speaking'
 export type CabCenter = {
   id: number
   name: string
+  kind: CenterKind
   city: string
   about: string
   invite_code: string
@@ -26,7 +27,10 @@ export type CabCenter = {
   delta: number
 }
 export type CabPayment = { amount: number; seats: number; paid_until: string; at: string }
-export type Cabinet = { center: CabCenter; role: Role; payments?: CabPayment[] }
+// Продление самим центром: карта, код для комментария, заявка на проверке (только аккаунту центра).
+export type CabOrder = { id: number; seats: number; months: number; amount: number; status: string; created_at: string }
+export type CabPay = { card: string; holder: string; code: string; pending: CabOrder | null }
+export type Cabinet = { center: CabCenter; role: Role; payments?: CabPayment[]; pay?: CabPay }
 
 export type Student = {
   id: number
@@ -43,6 +47,13 @@ export const cab = {
   get: () => request<Cabinet>('GET', '/api/cabinet'),
   about: (about: string) => request<Cabinet>('PATCH', '/api/cabinet', { about }),
   newCode: () => request<Cabinet>('POST', '/api/cabinet/code', {}),
+  order: (seats: number, months: number, screenshot: Blob) => {
+    const f = new FormData()
+    f.append('seats', String(seats))
+    f.append('months', String(months))
+    f.append('screenshot', screenshot, 'receipt.jpg')
+    return request<Cabinet>('POST', '/api/cabinet/order', f)
+  },
   students: () => request<{ students: Student[]; me: number }>('GET', '/api/cabinet/students'),
   remove: (id: number) => request<void>('DELETE', `/api/cabinet/students/${id}`),
   teacher: (id: number, teacher: boolean) => request<void>('PUT', `/api/cabinet/students/${id}/role`, { teacher }),
@@ -57,16 +68,20 @@ export const PARTS: { kind: PartKind; short: string; name: string }[] = [
 
 // Разделы: учитель не видит «Центр и тариф» (деньги и настройки — у аккаунта центра).
 export type SectionProps = { me: Me; data: Cabinet; onchange: (c: Cabinet) => void; goto: (id: string) => void }
-export type Section = { id: string; name: Key; admin?: boolean; load: () => Promise<{ default: Component<SectionProps> }> }
+export type Section = { id: string; name: Key; teacherName?: Key; admin?: boolean; load: () => Promise<{ default: Component<SectionProps> }> }
 
 export const sections: Section[] = [
   { id: 'overview', name: 'cab.sOverview', load: () => import('./Overview.svelte') },
   { id: 'students', name: 'cab.sStudents', load: () => import('./Students.svelte') },
   { id: 'requests', name: 'cab.sRequests', load: () => import('./Requests.svelte') },
-  { id: 'settings', name: 'cab.sSettings', admin: true, load: () => import('./Settings.svelte') },
+  { id: 'settings', name: 'cab.sSettings', teacherName: 'cab.sPlan', admin: true, load: () => import('./Settings.svelte') },
 ]
 
 export const sectionsFor = (role: Role) => sections.filter((s) => !s.admin || role === 'admin')
+
+// Подписи учителя без центра: «Кабинет учителя», «Тариф» вместо «Центр и тариф».
+export const sectionName = (s: Section, kind: CenterKind | undefined): Key => (kind === 'teacher' && s.teacherName) || s.name
+export const cabTitle = (kind: CenterKind | undefined): Key => (kind === 'teacher' ? 'cab.titleTeacher' : 'cab.title')
 
 export const IDLE_DAYS = 14
 const DAY = 24 * 60 * 60 * 1000
@@ -120,6 +135,23 @@ export function siteURL(): string {
 }
 
 // 1 234 567 — пробелами, как пишут суммы в Узбекистане.
+// Тариф центра — как billing.CenterPrice на сервере (SPEC, «Деньги»): меняется одно — меняется и другое.
+export const SEAT = 20_000
+export const SEAT_BIG = 15_000
+export const BIG_SEATS = 100
+export const MIN_SEATS = 20
+export const TEACHER_MIN_SEATS = 10
+export const MAX_SEATS = 5000
+export const MONTHS = [1, 3, 6, 12]
+
+export const minSeats = (kind: CenterKind | undefined) => (kind === 'teacher' ? TEACHER_MIN_SEATS : MIN_SEATS)
+
+// centerPrice — сумма за seats мест на months месяцев для вида kind; null — так продлить нельзя.
+export function centerPrice(seats: number, months: number, kind: CenterKind = 'center'): number | null {
+  if (!Number.isInteger(seats) || seats < minSeats(kind) || seats > MAX_SEATS || !MONTHS.includes(months)) return null
+  return seats * (seats >= BIG_SEATS ? SEAT_BIG : SEAT) * months
+}
+
 export function sum(n: number): string {
   return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
 }

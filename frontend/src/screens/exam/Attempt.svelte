@@ -40,6 +40,10 @@
 
   {#if res.mock_id}
     <button class="btn" onclick={back}>{t('mock.back')}</button>
+  {:else if res.kind === 'level'}
+    <!-- Тест уровня в рейтинг не идёт: сразу показать, как туда попасть. -->
+    <button class="btn" onclick={() => go({ s: 'practice', part: 'reading' })}>{t('level.toRating')}</button>
+    <button class="btn btn-plain" onclick={back}>{t('practice.done')}</button>
   {:else}
     <button class="btn" onclick={back}>{t('practice.done')}</button>
   {/if}

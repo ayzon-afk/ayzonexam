@@ -4,6 +4,7 @@
   import Head from '../../components/Head.svelte'
   import Skeleton from '../../components/Skeleton.svelte'
   import { api, type CenterInfo, type Me } from '../../lib/api'
+  import { cityKey, isRegion } from '../../lib/cities'
   import { formatBand } from '../../lib/exam'
   import { t } from '../../lib/i18n/index.svelte'
   import { go } from '../../lib/nav.svelte'
@@ -49,7 +50,7 @@
 {:else if !c}
   <Skeleton rows={4} />
 {:else}
-  <Head title={c.name} sub={c.city === 'tashkent' ? t('rating.city') : t('city.other')} demo={false} />
+  <Head title={c.name} sub={isRegion(c.city) ? t(cityKey(c.city)) : ''} demo={false} />
   <section class="card hero">
     <Avatar name={c.name} size={64} />
     <div class="stats">
@@ -63,7 +64,7 @@
   {#if status === 'member'}
     <p class="card mine">{t('center.yours')}</p>
     {#if me.center?.role}
-      <button class="btn btn-plain" onclick={() => go({ s: 'cabinet' })}>{t('cab.title')}</button>
+      <button class="btn btn-plain" onclick={() => go({ s: 'cabinet' })}>{t(c.kind === 'teacher' ? 'cab.titleTeacher' : 'cab.title')}</button>
     {/if}
   {:else if status === 'pending'}
     <p class="card mine">{t('center.requested')}</p>

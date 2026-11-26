@@ -12,9 +12,16 @@ import (
 // Аккаунт центра (SPEC, «Учителя и учебные центры»): ученик входит по ссылке-приглашению сразу или
 // просится сам — тогда центр подтверждает.
 
+// Виды centers.kind: учебный центр или учитель без центра (у него тоже ученики, ссылка и кабинет).
+const (
+	KindCenter  = "center"
+	KindTeacher = "teacher"
+)
+
 type CenterInfo struct {
 	ID       int64    `json:"id"`
 	Name     string   `json:"name"`
+	Kind     string   `json:"kind"`
 	City     string   `json:"city"`
 	About    string   `json:"about"`
 	Students int      `json:"students"`
@@ -25,7 +32,7 @@ type CenterInfo struct {
 
 // List — активные центры для выбора учеником.
 func (s *Store) List(ctx context.Context) ([]CenterInfo, error) {
-	rows, err := s.pool.Query(ctx, `SELECT c.id, c.name, c.city, c.about,
+	rows, err := s.pool.Query(ctx, `SELECT c.id, c.name, c.kind, c.city, c.about,
 			(SELECT count(*) FROM users m WHERE m.center_id = c.id AND m.center_status = 'member')
 		FROM centers c WHERE c.active ORDER BY c.name`)
 	if err != nil {
@@ -35,7 +42,7 @@ func (s *Store) List(ctx context.Context) ([]CenterInfo, error) {
 	list := []CenterInfo{}
 	for rows.Next() {
 		var c CenterInfo
-		if err := rows.Scan(&c.ID, &c.Name, &c.City, &c.About, &c.Students); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Kind, &c.City, &c.About, &c.Students); err != nil {
 			return nil, err
 		}
 		list = append(list, c)
@@ -46,9 +53,9 @@ func (s *Store) List(ctx context.Context) ([]CenterInfo, error) {
 // Center — страница центра: место среди центров и лучшие ученики по текущему баллу.
 func (s *Store) Center(ctx context.Context, id int64, now time.Time) (CenterInfo, error) {
 	var c CenterInfo
-	err := s.pool.QueryRow(ctx, `SELECT c.id, c.name, c.city, c.about,
+	err := s.pool.QueryRow(ctx, `SELECT c.id, c.name, c.kind, c.city, c.about,
 			(SELECT count(*) FROM users m WHERE m.center_id = c.id AND m.center_status = 'member')
-		FROM centers c WHERE c.id = $1 AND c.active`, id).Scan(&c.ID, &c.Name, &c.City, &c.About, &c.Students)
+		FROM centers c WHERE c.id = $1 AND c.active`, id).Scan(&c.ID, &c.Name, &c.Kind, &c.City, &c.About, &c.Students)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return c, ErrNotFound
 	}

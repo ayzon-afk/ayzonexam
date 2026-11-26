@@ -288,6 +288,39 @@ func (s *Server) callback(ctx context.Context, c *bot.Callback) {
 		}
 		setButtons([][]bot.Button{{{Text: "❌ Отказано: " + rejectReasons[parts[2]], Data: "noop:0"}}})
 		answer("Отказано")
+	case len(parts) == 3 && parts[0] == "ap" && (parts[1] == "ok" || parts[1] == "pilot" || parts[1] == "no"):
+		done, err := s.decideApplication(ctx, id, c.From.ID, parts[1])
+		if err != nil {
+			answer(err.Error())
+			return
+		}
+		setButtons([][]bot.Button{{{Text: done, Data: "noop:0"}}})
+		answer(done)
+	case len(parts) == 3 && parts[0] == "co" && parts[1] == "ok":
+		if err := s.confirmCenterOrder(ctx, id, c.From.ID); err != nil {
+			answer(err.Error())
+			return
+		}
+		setButtons([][]bot.Button{{{Text: "✅ Подтверждено", Data: "noop:0"}}})
+		answer("Подтверждено")
+	case len(parts) == 3 && parts[0] == "co" && parts[1] == "no":
+		setButtons([][]bot.Button{
+			{{Text: "Перевод не найден", Data: "co:r:notfound:" + parts[2]}},
+			{{Text: "Не та сумма", Data: "co:r:amount:" + parts[2]}},
+			{{Text: "Скрин не подходит", Data: "co:r:screenshot:" + parts[2]}},
+			{{Text: "‹ Назад", Data: "co:back:" + parts[2]}},
+		})
+		answer("Выберите причину")
+	case len(parts) == 3 && parts[0] == "co" && parts[1] == "back":
+		setButtons(orderButtons(id))
+		answer("")
+	case len(parts) == 4 && parts[0] == "co" && parts[1] == "r":
+		if err := s.rejectCenterOrder(ctx, id, c.From.ID, parts[2]); err != nil {
+			answer(err.Error())
+			return
+		}
+		setButtons([][]bot.Button{{{Text: "❌ Отказано: " + rejectReasons[parts[2]], Data: "noop:0"}}})
+		answer("Отказано")
 	case len(parts) == 3 && parts[0] == "tk" && parts[1] == "close":
 		if err := s.support.SetStatus(ctx, id, "closed"); err != nil {
 			answer(err.Error())
@@ -325,6 +358,46 @@ func (s *Server) confirmPayment(ctx context.Context, id, admin int64) error {
 	if d.ReferrerTG != 0 {
 		s.say(ctx, d.ReferrerTG, d.ReferrerLang, "bonus.premium", nil, "premium")
 	}
+	return nil
+}
+
+func orderButtons(id int64) [][]bot.Button {
+	sid := strconv.FormatInt(id, 10)
+	return [][]bot.Button{{{Text: "✅ Подтвердить", Data: "co:ok:" + sid}, {Text: "❌ Отказать", Data: "co:no:" + sid}}}
+}
+
+// confirmCenterOrder — «Подтвердить» оплату центра: места и срок продлеваются, отправившему — сообщение.
+func (s *Server) confirmCenterOrder(ctx context.Context, id, admin int64) error {
+	o, err := s.billing.ConfirmCenterOrder(ctx, id, admin, s.Now())
+	if errors.Is(err, billing.ErrDecided) {
+		return errors.New("оплата уже проверена")
+	}
+	if err != nil {
+		return err
+	}
+	until := ""
+	if o.PaidUntil != nil {
+		until = o.PaidUntil.Format("02.01.2006")
+	}
+	s.audit(ctx, admin, "center.order.confirm", centerTarget(o.CenterID), map[string]any{"order": id, "amount": o.Amount, "seats": o.Seats, "paid_until": until})
+	s.say(ctx, o.TelegramID, o.Lang, "center.paid", map[string]string{"seats": strconv.Itoa(o.Seats), "date": until}, "cabinet-settings")
+	return nil
+}
+
+// rejectCenterOrder — «Отказать»: тариф не меняется, отправившему — причина на его языке.
+func (s *Server) rejectCenterOrder(ctx context.Context, id, admin int64, reason string) error {
+	if _, ok := rejectReasons[reason]; !ok {
+		return errors.New("неизвестная причина")
+	}
+	o, err := s.billing.RejectCenterOrder(ctx, id, admin, reason, s.Now())
+	if errors.Is(err, billing.ErrDecided) {
+		return errors.New("оплата уже проверена")
+	}
+	if err != nil {
+		return err
+	}
+	s.audit(ctx, admin, "center.order.reject", centerTarget(o.CenterID), map[string]any{"order": id, "reason": reason})
+	s.say(ctx, o.TelegramID, o.Lang, "center.payRejected", map[string]string{"reason": bot.T(o.Lang, "pay.reason."+reason)}, "cabinet-settings")
 	return nil
 }
 

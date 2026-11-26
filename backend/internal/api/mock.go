@@ -20,10 +20,11 @@ import (
 // Полный mock по частям (этап 18). Listening и Reading считаются сразу, Writing и Speaking — очередями AI.
 
 type partView struct {
-	State     string     `json:"state"` // todo, running, checking, done
-	Band      *float64   `json:"band"`
-	AttemptID *int64     `json:"attempt_id,omitempty"`
-	EndsAt    *time.Time `json:"ends_at,omitempty"`
+	State      string     `json:"state"` // todo, running, checking, done
+	Band       *float64   `json:"band"`
+	AttemptID  *int64     `json:"attempt_id,omitempty"`
+	EndsAt     *time.Time `json:"ends_at,omitempty"`
+	Violations int        `json:"violations"` // нарушения честного режима; с 3 — не в рейтинге
 }
 
 type mockCheck struct {
@@ -64,6 +65,7 @@ func (s *server) mockView(ctx context.Context, u users.User, m exam.Mock) (mockV
 		}
 		if a != nil {
 			p.AttemptID = &a.ID
+			p.Violations = a.Leaves
 			if a.FinishedAt != nil {
 				p.State, p.Band = "done", &a.Band
 			} else {
@@ -92,7 +94,7 @@ func (s *server) mockView(ctx context.Context, u users.User, m exam.Mock) (mockV
 		v.Writing = append(v.Writing, c)
 	}
 	rows.Close()
-	wp := partView{State: "todo", Band: m.Writing}
+	wp := partView{State: "todo", Band: m.Writing, Violations: m.WritingViolations}
 	inQueue := 0 // проверки, которые не упали: упавшее задание можно отправить ещё раз
 	for _, c := range v.Writing {
 		if c.Status != "failed" {
@@ -117,7 +119,7 @@ func (s *server) mockView(ctx context.Context, u users.User, m exam.Mock) (mockV
 	if err == nil {
 		v.Speaking = &sc
 	}
-	sp := partView{State: "todo", Band: m.Speaking}
+	sp := partView{State: "todo", Band: m.Speaking, Violations: m.SpeakingViolations}
 	switch {
 	case m.Speaking != nil:
 		sp.State = "done"
@@ -435,8 +437,9 @@ func (s *server) submitMockWriting(w http.ResponseWriter, r *http.Request, u use
 		return
 	}
 	var b struct {
-		Task1 string `json:"task1"`
-		Task2 string `json:"task2"`
+		Task1      string `json:"task1"`
+		Task2      string `json:"task2"`
+		Violations int    `json:"violations"` // счёт честного режима в браузере
 	}
 	if !readJSON(w, r, &b, 64<<10) {
 		return
@@ -471,6 +474,11 @@ func (s *server) submitMockWriting(w http.ResponseWriter, r *http.Request, u use
 	}
 	if len(items) == 0 {
 		writeError(w, http.StatusConflict, "part_done")
+		return
+	}
+	// Нарушения не уменьшаются: повторная отправка упавшего задания не обнуляет счёт.
+	if _, err := s.DB.Exec(ctx, `UPDATE mocks SET writing_violations = greatest(writing_violations, $2) WHERE id = $1`, m.ID, max(b.Violations, 0)); err != nil {
+		s.fail(w, r, err)
 		return
 	}
 	for _, it := range items {

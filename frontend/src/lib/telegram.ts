@@ -12,9 +12,13 @@ interface WebApp {
   expand(): void
   isVersionAtLeast(version: string): boolean
   disableVerticalSwipes?(): void
+  isFullscreen?: boolean
+  requestFullscreen?(): void
+  exitFullscreen?(): void
   close(): void
   colorScheme?: 'light' | 'dark'
   onEvent?(event: string, cb: () => void): void
+  offEvent?(event: string, cb: () => void): void
   openTelegramLink?(url: string): void
   openLink?(url: string): void
   setHeaderColor?(color: string): void
@@ -47,6 +51,52 @@ export function initTelegram() {
   tg.expand()
   // Свайп вниз не закрывает приложение посреди экзамена.
   if (tg.isVersionAtLeast('7.7')) tg.disableVerticalSwipes?.()
+  // На компьютере — сразу во весь экран (DECISIONS 2026-11-25): кабинет и админка — во всю ширину, как
+  // на сайте. Кто вышел из полного экрана, тому в следующий раз не навязываем.
+  if (DESKTOP.includes(tg.platform) && canFullscreen() && remembered() !== '0') tg.requestFullscreen?.()
+  tg.onEvent?.('fullscreenChanged', () => remember(tg.isFullscreen ? '1' : '0'))
+}
+
+// Платформы Telegram на компьютере: телефон открывает Mini App на весь экран и так.
+const DESKTOP = ['tdesktop', 'macos', 'weba', 'webk', 'unigram']
+const FULL_KEY = 'ayzon.fullscreen'
+
+function remembered(): string | null {
+  try {
+    return localStorage.getItem(FULL_KEY)
+  } catch {
+    return null
+  }
+}
+
+function remember(v: string) {
+  try {
+    localStorage.setItem(FULL_KEY, v)
+  } catch {
+    // хранилище недоступно — в следующий раз снова во весь экран
+  }
+}
+
+// Весь экран (Bot API 8.0): шапка Telegram прячется, его кнопки ложатся поверх — отступ под них даёт
+// --safe-top (app.css). false — старый клиент или не Telegram.
+export function canFullscreen(): boolean {
+  return inTelegram() && !!tg?.requestFullscreen && tg.isVersionAtLeast('8.0')
+}
+
+export function isFullscreen(): boolean {
+  return !!tg?.isFullscreen
+}
+
+export function setFullscreen(on: boolean) {
+  if (!canFullscreen()) return
+  if (on) tg?.requestFullscreen?.()
+  else tg?.exitFullscreen?.()
+}
+
+// onFullscreen — вызов при входе и выходе из полного экрана; возвращает отписку (для $effect).
+export function onFullscreen(cb: () => void): () => void {
+  tg?.onEvent?.('fullscreenChanged', cb)
+  return () => tg?.offEvent?.('fullscreenChanged', cb)
 }
 
 export function initData(): string {

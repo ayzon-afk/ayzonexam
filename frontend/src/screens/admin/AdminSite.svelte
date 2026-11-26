@@ -1,25 +1,31 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import Logo from '../../components/Logo.svelte'
   import Skeleton from '../../components/Skeleton.svelte'
+  import { showBack } from '../../lib/telegram'
   import { sections } from './sections'
 
   // Админ-панель владельца на сайте (DECISIONS 2026-11-24): /admin или admin.<домен> — во всю ширину, разделы
   // слева, раздел — в адресе (#usage), чтобы обновление страницы его не теряло. Разделы те же, что в Mini App.
-  let { name, onlogout }: { name: string; onlogout: () => void } = $props()
+  // С onexit — та же панель в Telegram на широком экране (Shell): адрес не трогается, выход — «‹ В приложение».
+  let { name, onlogout, onexit }: { name: string; onlogout?: () => void; onexit?: () => void } = $props()
 
   const fromHash = () => {
     const id = location.hash.slice(1)
     return sections.some((s) => s.id === id) ? id : 'overview'
   }
-  let current = $state(fromHash())
+  let current = $state(untrack(() => (onexit ? 'overview' : fromHash())))
   const section = $derived(sections.find((s) => s.id === current)!)
 
   function goto(id: string) {
     current = id
-    history.replaceState(null, '', `#${id}`)
+    if (!onexit) history.replaceState(null, '', `#${id}`)
   }
 
+  $effect(() => (onexit ? showBack(onexit) : undefined))
+
   $effect(() => {
+    if (onexit) return
     const on = () => (current = fromHash())
     addEventListener('hashchange', on)
     return () => removeEventListener('hashchange', on)
@@ -36,8 +42,12 @@
       {/each}
     </nav>
     <div class="foot">
-      <a href="/">Открыть приложение</a>
-      <button onclick={onlogout}>Выйти</button>
+      {#if onexit}
+        <button onclick={onexit}>‹ В приложение</button>
+      {:else}
+        <a href="/">Открыть приложение</a>
+        <button onclick={onlogout}>Выйти</button>
+      {/if}
     </div>
   </aside>
 
@@ -69,7 +79,7 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding: 24px 16px;
+    padding: calc(var(--safe-top) + 24px) 16px 24px;
     background: var(--section);
     border-right: 1px solid var(--separator);
   }
@@ -120,7 +130,7 @@
     min-width: 0;
     max-width: 1200px;
     width: 100%;
-    padding: 32px 32px 64px;
+    padding: calc(var(--safe-top) + 32px) 32px 64px;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -139,7 +149,7 @@
     aside {
       position: static;
       height: auto;
-      padding: 16px;
+      padding: calc(var(--safe-top) + 16px) 16px 16px;
       border-right: 0;
       border-bottom: 1px solid var(--separator);
     }

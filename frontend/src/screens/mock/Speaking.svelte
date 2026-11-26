@@ -76,6 +76,7 @@
         r.id,
         takes.map((x) => x.blob),
         takes.reduce((s, x) => s + x.seconds, 0),
+        violations,
       )
       haptic.success()
       back()
@@ -86,6 +87,9 @@
       sending = false
     }
   }
+
+  // Нарушения камеры: запись не обрывается, но с трёх Speaking не идёт в рейтинг (сервер).
+  let violations = $state(0)
 
   const q = $derived(questions?.[i])
   const done = $derived(!!questions && takes.length === questions.length && takes.every(Boolean))
@@ -105,9 +109,10 @@
     <span class="num">{clock(ends - now)}</span>
     <span class="hint">Part {q.part} · {i + 1}/{questions.length}</span>
   </div>
-  <!-- Камера в Speaking только предупреждает, без звука: запись ответа не обрывается и сигнал в неё не
-       попадает (DECISIONS 2026-11-24). -->
-  {#if !done}<Proctor sound={false} onviolation={() => {}} />{/if}
+  <!-- Камера в Speaking предупреждает без звука: запись ответа не обрывается и сигнал в неё не попадает
+       (DECISIONS 2026-11-24); нарушения считаются и уходят на сервер (DECISIONS 2026-11-25). -->
+  {#if !done}<Proctor sound={false} onviolation={() => (violations += 1)} />{/if}
+  {#if violations > 0}<p class="hint warn" role="status">{t('mock.warn', { n: violations })}</p>{/if}
 
   {#if done}
     <section class="card stack">

@@ -24,6 +24,7 @@
     tournament: () => import('./Tournament.svelte'),
     center: () => import('./center/Center.svelte'),
     centers: () => import('./center/Centers.svelte'),
+    apply: () => import('./center/Apply.svelte'),
     centerRequests: () => import('./cabinet/Cabinet.svelte'),
     cabinet: () => import('./cabinet/Cabinet.svelte'),
     practice: () => import('./exam/Practice.svelte'),
@@ -65,45 +66,81 @@
   })
 
   const top = $derived(current())
+
+  // Кабинет центра и админка на широком экране (компьютер, Telegram во весь экран) — как на сайте:
+  // разделы слева, во всю ширину, без вкладок ученика (DECISIONS 2026-11-25).
+  // Свой matchMedia, а не MediaQuery из svelte/reactivity: тот добавлял к первому экрану 3 КБ.
+  const mq = matchMedia('(min-width: 900px)')
+  let wide = $state(mq.matches)
+  onMount(() => {
+    const on = () => (wide = mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  })
+  const site = $derived(wide && top && ['cabinet', 'centerRequests', 'admin'].includes(top.s) ? top.s : null)
+  const cabRoute = $derived(top?.s === 'cabinet' || top?.s === 'centerRequests' ? top : null)
 </script>
 
-<div class="shell">
-  <main class:sub={!!top}>
-    {#if !top}
-      {#if nav.tab === 'home'}
-        <Home {me} />
-      {:else if nav.tab === 'exams'}
-        <Exams />
-      {:else if nav.tab === 'rating'}
-        <Rating {me} />
-      {:else if nav.tab === 'community'}
-        <Community />
+{#if site === 'admin'}
+  {#await import('./admin/AdminSite.svelte')}
+    <main><Skeleton rows={6} /></main>
+  {:then m}
+    <m.default name={me.first_name || me.nickname} onexit={back} />
+  {:catch}
+    <main><p class="error">{t('app.error')}</p></main>
+  {/await}
+{:else if site}
+  {#await import('./cabinet/CabinetSite.svelte')}
+    <main><Skeleton rows={6} /></main>
+  {:then m}
+    <m.default
+      {me}
+      onexit={back}
+      start={cabRoute?.section ?? (site === 'centerRequests' ? 'requests' : 'overview')}
+      onsection={(id: string) => cabRoute && (cabRoute.section = id)}
+    />
+  {:catch}
+    <main><p class="error">{t('app.error')}</p></main>
+  {/await}
+{:else}
+  <div class="shell">
+    <main class:sub={!!top}>
+      {#if !top}
+        {#if nav.tab === 'home'}
+          <Home {me} />
+        {:else if nav.tab === 'exams'}
+          <Exams />
+        {:else if nav.tab === 'rating'}
+          <Rating {me} {onchange} />
+        {:else if nav.tab === 'community'}
+          <Community />
+        {:else}
+          <Profile {me} {onchange} {onlogout} />
+        {/if}
+      {:else if top.s === 'writingNew'}
+        <WritingNew onback={back} oncreated={(id) => replace({ s: 'writingCheck', id })} />
+      {:else if top.s === 'writingCheck'}
+        {#key top.id}
+          <WritingResult id={top.id} onback={back} onagain={() => replace({ s: 'writingNew' })} />
+        {/key}
+      {:else if loaded[top.s]}
+        {@const Screen = loaded[top.s]}
+        {#key top}
+          <Screen r={top} {me} {onchange} />
+        {/key}
       {:else}
-        <Profile {me} {onchange} {onlogout} />
+        {#await load(top.s)}
+          <Skeleton rows={4} />
+        {:catch}
+          <p class="error">{t('app.error')}</p>
+          <button class="btn btn-plain" onclick={back}>{t('onb.back')}</button>
+        {/await}
       {/if}
-    {:else if top.s === 'writingNew'}
-      <WritingNew onback={back} oncreated={(id) => replace({ s: 'writingCheck', id })} />
-    {:else if top.s === 'writingCheck'}
-      {#key top.id}
-        <WritingResult id={top.id} onback={back} onagain={() => replace({ s: 'writingNew' })} />
-      {/key}
-    {:else if loaded[top.s]}
-      {@const Screen = loaded[top.s]}
-      {#key top}
-        <Screen r={top} {me} {onchange} />
-      {/key}
-    {:else}
-      {#await load(top.s)}
-        <Skeleton rows={4} />
-      {:catch}
-        <p class="error">{t('app.error')}</p>
-        <button class="btn btn-plain" onclick={back}>{t('onb.back')}</button>
-      {/await}
-    {/if}
-  </main>
+    </main>
 
-  <TabBar sub={!!top} />
-</div>
+    <TabBar sub={!!top} />
+  </div>
+{/if}
 
 <style>
   main {
@@ -127,7 +164,7 @@
 
     main,
     .sub {
-      padding: 32px 24px 48px;
+      padding: calc(var(--safe-top) + 32px) 24px 48px;
     }
   }
 </style>

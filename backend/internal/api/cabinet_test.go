@@ -237,3 +237,124 @@ func TestCabinetPayments(t *testing.T) {
 		t.Fatalf("служебное владельца ушло центру: %s", ov.raw)
 	}
 }
+
+// Центр сам продлевает тариф: заявка со скрином → владелец «Подтвердить» в боте → места и срок продлены.
+func TestCabinetOrder(t *testing.T) {
+	msg := &fakeBotAPI{}
+	h := newHandler(t, Deps{Admins: []int64{adminTG}, PayCard: "8600 1234 5678 9012", PayCardName: "Owner", Msg: msg})
+	s := newCabinet(t, h, "Cabinet Center 95", 9651)
+	ov := do(t, h, "GET", "/api/cabinet", s.owner, "")
+	pay, _ := ov.body["pay"].(map[string]any)
+	if pay == nil || pay["card"] != "8600 1234 5678 9012" || pay["code"] != fmt.Sprintf("AYC-%d", s.cid) || pay["pending"] != nil {
+		t.Fatalf("карта и код в кабинете: %s", ov.raw)
+	}
+	if r := do(t, h, "GET", "/api/cabinet", s.teacher, ""); strings.Contains(r.raw, "8600") {
+		t.Fatalf("учителю — без денег: %s", r.raw)
+	}
+	shot := file{"screenshot", jpeg}
+	order := func(auth, seats, months string) resp {
+		return form(t, h, "/api/cabinet/order", auth, map[string]string{"seats": seats, "months": months}, shot)
+	}
+	if r := order(s.teacher, "20", "1"); r.code != 403 {
+		t.Fatalf("учитель не платит за центр: %d", r.code)
+	}
+	for _, bad := range [][2]string{{"19", "1"}, {"20", "2"}, {"20", "0"}} {
+		if r := order(s.owner, bad[0], bad[1]); r.code != 400 || r.body["error"] != "bad_plan" {
+			t.Fatalf("тариф %v: %d %s", bad, r.code, r.raw)
+		}
+	}
+	r := order(s.owner, "25", "3")
+	if r.code != 200 {
+		t.Fatalf("заявка: %d %s", r.code, r.raw)
+	}
+	pending := r.body["pay"].(map[string]any)["pending"].(map[string]any)
+	if pending["amount"] != 1_500_000.0 || pending["status"] != "pending" {
+		t.Fatalf("25 мест × 3 мес. = 1 500 000: %v", pending)
+	}
+	if r := order(s.owner, "25", "1"); r.code != 409 {
+		t.Fatalf("вторая заявка на проверке: %d", r.code)
+	}
+	if len(msg.admins) != 1 || !strings.Contains(msg.admins[0], "1 500 000") || !strings.Contains(msg.admins[0], "Cabinet Center 95") {
+		t.Fatalf("владельцу — скрин с суммой: %v", msg.admins)
+	}
+	c := ov.body["center"].(map[string]any)
+	if c["seats"] != 0.0 || c["paid_until"] != nil {
+		t.Fatalf("до подтверждения тариф не меняется: %v", c)
+	}
+
+	oid := int64(pending["id"].(float64))
+	callback := func(from int64, data string) {
+		h.HandleUpdate(t.Context(), update(t, fmt.Sprintf(`{"callback_query":{"id":"q","from":{"id":%d},"data":%q}}`, from, data)))
+	}
+	callback(9652, fmt.Sprintf("co:ok:%d", oid)) // не админ — ничего
+	if r := do(t, h, "GET", "/api/cabinet", s.owner, ""); r.body["center"].(map[string]any)["seats"] != 0.0 {
+		t.Fatalf("кнопку нажал не владелец: %s", r.raw)
+	}
+	callback(adminTG, fmt.Sprintf("co:ok:%d", oid))
+	after := do(t, h, "GET", "/api/cabinet", s.owner, "")
+	c = after.body["center"].(map[string]any)
+	pays, _ := after.body["payments"].([]any)
+	if c["seats"] != 25.0 || c["paid_until"] == nil || len(pays) != 1 || after.body["pay"].(map[string]any)["pending"] != nil {
+		t.Fatalf("после подтверждения: %s", after.raw)
+	}
+	if !strings.Contains(strings.Join(msg.users, "|"), "center.paid:cabinet") {
+		t.Fatalf("центру — сообщение об оплате: %v", msg.users)
+	}
+	callback(adminTG, fmt.Sprintf("co:ok:%d", oid)) // второе нажатие — не продлевает ещё раз
+	if again := do(t, h, "GET", "/api/cabinet", s.owner, ""); len(again.body["payments"].([]any)) != 1 {
+		t.Fatalf("подтверждение дважды: %s", again.raw)
+	}
+
+	// Отказ: тариф не меняется, причина — центру.
+	r = order(s.owner, "100", "1")
+	if p := r.body["pay"].(map[string]any)["pending"].(map[string]any); p["amount"] != 1_500_000.0 {
+		t.Fatalf("от 100 мест — 15 000 за место: %v", p)
+	}
+	oid = int64(r.body["pay"].(map[string]any)["pending"].(map[string]any)["id"].(float64))
+	callback(adminTG, fmt.Sprintf("co:r:amount:%d", oid))
+	if r := do(t, h, "GET", "/api/cabinet", s.owner, ""); r.body["center"].(map[string]any)["seats"] != 25.0 || r.body["pay"].(map[string]any)["pending"] != nil {
+		t.Fatalf("после отказа тариф прежний: %s", r.raw)
+	}
+	if !strings.Contains(strings.Join(msg.users, "|"), "center.payRejected") {
+		t.Fatalf("центру — причина отказа: %v", msg.users)
+	}
+}
+
+// Учитель без центра — тот же кабинет: от 10 мест, в рейтинг центров не входит, вид виден ученику.
+func TestTeacherCabinet(t *testing.T) {
+	msg := &fakeBotAPI{}
+	h := newHandler(t, Deps{Admins: []int64{adminTG}, PayCard: "8600 1234 5678 9012", Msg: msg})
+	admin := initData(adminTG, "")
+	s := newCabinet(t, h, "Teacher Aziz 8.0", 9661)
+	path := fmt.Sprintf("/api/admin/centers/%d", s.cid)
+	if r := do(t, h, "PUT", path, admin, `{"name":"Teacher Aziz 8.0","city":"samarkand","kind":"teacher"}`); r.code != 200 {
+		t.Fatalf("учитель: %d %s", r.code, r.raw)
+	}
+	if r := do(t, h, "PUT", path, admin, `{"name":"Teacher Aziz 8.0","city":"samarkand","kind":"boss"}`); r.code != 400 {
+		t.Fatalf("неизвестный вид: %d", r.code)
+	}
+	// Правка без вида (старая админка) — учитель остаётся учителем.
+	do(t, h, "PUT", path, admin, `{"name":"Teacher Aziz 8.0","city":"samarkand","about":"IELTS 8.0"}`)
+	ov := do(t, h, "GET", "/api/cabinet", s.owner, "")
+	if ov.body["center"].(map[string]any)["kind"] != "teacher" {
+		t.Fatalf("вид в кабинете: %s", ov.raw)
+	}
+	if me := do(t, h, "GET", "/api/me", s.s1, ""); me.body["center"].(map[string]any)["kind"] != "teacher" {
+		t.Fatalf("ученик видит, что это учитель: %s", me.raw)
+	}
+	order := func(seats string) resp {
+		return form(t, h, "/api/cabinet/order", s.owner, map[string]string{"seats": seats, "months": "1"}, file{"screenshot", jpeg})
+	}
+	if r := order("9"); r.code != 400 {
+		t.Fatalf("учитель, 9 мест: %d", r.code)
+	}
+	if r := order("10"); r.code != 200 || r.body["pay"].(map[string]any)["pending"].(map[string]any)["amount"] != 200_000.0 {
+		t.Fatalf("учитель, 10 мест = 200 000: %d %s", r.code, r.raw)
+	}
+	if cr := do(t, h, "GET", "/api/rating/centers", s.s1, ""); strings.Contains(cr.raw, "Teacher Aziz") {
+		t.Fatalf("учитель в рейтинге центров: %s", cr.raw)
+	}
+	if r := do(t, h, "GET", "/api/rating?scope=center", s.s1, ""); r.body["total"] != 2.0 {
+		t.Fatalf("«Мой учитель» — его ученики: %s", r.raw)
+	}
+}

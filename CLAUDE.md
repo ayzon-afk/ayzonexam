@@ -69,6 +69,6 @@ Telegram Mini App для подготовки к IELTS: mock-экзамены, A
 - Порты встроенной базы тестов — ниже 49152 (25431+): Windows резервирует диапазоны выше
   (`netsh int ipv4 show excludedportrange protocol=tcp`). Упавший тест может оставить свою базу
   (`ayzonexam-pg…` во временных файлах) — следующий запуск пишет «already listening».
-- Правила рейтинга и турнира одинаковые на сервере и в интерфейсе: `rating.TourStart` ↔ `lib/tournament.ts`.
+- Правила рейтинга и турнира одинаковые на сервере и в интерфейсе: `rating.TourStart` ↔ `lib/tournament.ts`; список регионов — `rating.Regions` ↔ `lib/cities.ts` и CHECK в базе (новой миграцией).
 - Новый экран — добавить случай в `frontend/scripts/layout.mjs` (и ответы API в `layout/fixtures.mjs`), иначе
   его вёрстку никто не проверит. Сетка с длинным текстом — `minmax(0, 1fr)`, иначе она раздвигает экран.

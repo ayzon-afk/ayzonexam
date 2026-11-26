@@ -46,6 +46,8 @@
   const adminSite = !inTelegram() && (location.hostname.startsWith('admin.') || sitePath('admin'))
   const cabinetSite = !inTelegram() && !adminSite && (location.hostname.startsWith('center.') || sitePath('cabinet'))
 
+  const staff = (m: Me) => m.center?.status === 'member' && m.center.role === 'admin'
+
   async function load() {
     status = 'loading'
     try {
@@ -62,6 +64,11 @@
       } else if (target) {
         nav.tab = target.tab
         nav.stack = target.route ? [target.route] : []
+      } else if (staff(me)) {
+        // Аккаунт центра и учитель без центра: главный экран — кабинет (аналитика, приём учеников, оплата);
+        // приложение ученика — «Назад» (DECISIONS 2026-11-25).
+        nav.tab = 'profile'
+        nav.stack = [{ s: 'cabinet' }]
       }
       status = 'ready'
       startBeat()
@@ -132,7 +139,7 @@
     {:catch}
       <main class="center"><p>{t('app.error')}</p></main>
     {/await}
-  {:else if me.onboarded}
+  {:else if me.onboarded || staff(me) || open.startsWith('apply')}
     <Shell {me} onchange={update} onlogout={logout} />
   {:else}
     <Onboarding ondone={onboarded} />

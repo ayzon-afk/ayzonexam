@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { IDLE_DAYS, idle, sectionsFor, sum, toCSV, view, type Student } from './cabinet'
+import { centerPrice, IDLE_DAYS, idle, MAX_SEATS, sectionsFor, sum, toCSV, view, type Student } from './cabinet'
 
 const now = Date.parse('2026-11-25T12:00:00Z')
 const daysAgo = (n: number) => new Date(now - n * 24 * 60 * 60 * 1000).toISOString()
@@ -75,5 +75,21 @@ describe('кабинет: разделы и суммы', () => {
     expect(sum(400000)).toBe('400 000')
     expect(sum(1234567)).toBe('1 234 567')
     expect(sum(999)).toBe('999')
+  })
+})
+
+describe('кабинет: тариф центра — как billing.CenterPrice', () => {
+  it('за место в месяц, от 100 мест дешевле', () => {
+    expect(centerPrice(20, 1)).toBe(400_000)
+    expect(centerPrice(99, 1)).toBe(1_980_000)
+    expect(centerPrice(100, 1)).toBe(1_500_000)
+    expect(centerPrice(25, 12)).toBe(6_000_000)
+  })
+  it('меньше 20 мест, чужой срок, дробное — нельзя', () => {
+    for (const [seats, months] of [[19, 1], [20, 2], [20, 0], [20.5, 1], [MAX_SEATS + 1, 1]] as const) expect(centerPrice(seats, months)).toBeNull()
+  })
+  it('учитель без центра — от 10 мест', () => {
+    expect(centerPrice(10, 1, 'teacher')).toBe(200_000)
+    expect(centerPrice(9, 1, 'teacher')).toBeNull()
   })
 })

@@ -23,7 +23,7 @@ const Top = 50
 
 // Области рейтинга учеников.
 const (
-	City    = "city"
+	City    = "city" // свой регион (Regions)
 	Center  = "center"
 	Friends = "friends"
 	Country = "country"
@@ -84,7 +84,10 @@ func (s *Store) Students(ctx context.Context, scope string, me int64, centerID *
 	case Country:
 		filter = `true`
 	case City:
-		filter = `coalesce(nullif(u.city, ''), c.city) = 'tashkent'`
+		// Регион ученика: свой, а не указан — регион его центра. Нет региона (не указан, другая
+		// страна) — рейтинг пустой: сравнение с NULL никого не берёт.
+		filter = `coalesce(nullif(u.city, ''), c.city) = (SELECT nullif(nullif(coalesce(nullif(m.city, ''), mc.city), ''), 'other')
+			FROM users m LEFT JOIN centers mc ON mc.id = m.center_id AND m.center_status = 'member' WHERE m.id = $2)`
 	case Center:
 		if centerID == nil {
 			return Board{Rows: []Row{}}, nil
@@ -152,13 +155,15 @@ const centerAvgSQL = `%[1]s_c AS (
 		FROM users u JOIN %[1]s ON %[1]s.user_id = u.id
 		WHERE u.center_status = 'member' AND u.blocked_at IS NULL GROUP BY u.center_id)`
 
-// Centers — рейтинг центров. Центр без учеников с баллом в рейтинг не входит.
+// Centers — рейтинг центров. Центр без учеников с баллом в рейтинг не входит; учитель без центра — тоже:
+// здесь соревнуются центры.
 func (s *Store) Centers(ctx context.Context, now time.Time) ([]CenterRow, error) {
 	rows, err := s.pool.Query(ctx, `WITH `+sprintf(scoresSQL, "cur", "$1")+`, `+sprintf(scoresSQL, "old", "($1::timestamptz - interval '7 days')")+`,
 		`+sprintf(centerAvgSQL, "cur")+`, `+sprintf(centerAvgSQL, "old")+`,
 		now_r AS (SELECT c.id, c.name, c.city, a.avg, a.scored, rank() OVER (ORDER BY a.avg DESC) AS place
-			FROM centers c JOIN cur_c a ON a.id = c.id WHERE c.active),
-		old_r AS (SELECT c.id, rank() OVER (ORDER BY a.avg DESC) AS place FROM centers c JOIN old_c a ON a.id = c.id WHERE c.active)
+			FROM centers c JOIN cur_c a ON a.id = c.id WHERE c.active AND c.kind = 'center'),
+		old_r AS (SELECT c.id, rank() OVER (ORDER BY a.avg DESC) AS place FROM centers c JOIN old_c a ON a.id = c.id
+			WHERE c.active AND c.kind = 'center')
 		SELECT n.id, n.place, n.name, n.city, n.avg, n.scored,
 			(SELECT count(*) FROM users m WHERE m.center_id = n.id AND m.center_status = 'member'), o.place
 		FROM now_r n LEFT JOIN old_r o ON o.id = n.id ORDER BY n.place, n.id`, now)

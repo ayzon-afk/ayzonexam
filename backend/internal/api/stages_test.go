@@ -203,6 +203,22 @@ func TestRatingAndCenters(t *testing.T) {
 	if city := do(t, h, "GET", "/api/rating?scope=city", b, ""); !strings.Contains(city.raw, `"me":true`) {
 		t.Fatalf("город берётся у центра: %s", city.raw)
 	}
+	// Свой регион: Самарканд не видит ташкентский центр; другая страна — рейтинга региона нет.
+	sam := initData(9304, "")
+	if r := do(t, h, "PATCH", "/api/me", sam, `{"city":"samarkand"}`); r.code != 200 || r.body["city"] != "samarkand" {
+		t.Fatalf("регион: %d %s", r.code, r.raw)
+	}
+	solve(t, h, sam, fmt.Sprintf("/api/tests/%d/start", testID(t, h, sam, "reading")), "", 5)
+	if r := do(t, h, "GET", "/api/rating?scope=city", sam, ""); r.body["total"] != 1.0 || !strings.Contains(r.raw, `"me":true`) {
+		t.Fatalf("рейтинг Самарканда: %s", r.raw)
+	}
+	do(t, h, "PATCH", "/api/me", sam, `{"city":"other"}`)
+	if r := do(t, h, "GET", "/api/rating?scope=city", sam, ""); r.code != 200 || r.body["total"] != 0.0 || r.body["mine"] != nil {
+		t.Fatalf("другая страна — без рейтинга региона: %s", r.raw)
+	}
+	if r := do(t, h, "GET", "/api/rating?scope=country", sam, ""); r.body["mine"] == nil {
+		t.Fatalf("Узбекистан — все: %s", r.raw)
+	}
 	cr := do(t, h, "GET", "/api/rating/centers", a, "")
 	if !strings.Contains(cr.raw, `"name":"Test Center 93"`) || !strings.Contains(cr.raw, `"scored":2`) {
 		t.Fatalf("рейтинг центров: %s", cr.raw)
@@ -742,4 +758,41 @@ func newMultipart(buf *bytes.Buffer, fields map[string]string, files ...file) st
 	}
 	mw.Close()
 	return mw.FormDataContentType()
+}
+
+// Честный mock на сайте: нарушения Writing и Speaking — на сервере; с трёх часть не идёт в рейтинг.
+func TestMockViolations(t *testing.T) {
+	h := newHandler(t, Deps{Admins: []int64{adminTG}})
+	addAudio(t, h)
+	auth := initData(9509, "")
+	m := do(t, h, "POST", "/api/mock", auth, "")
+	if m.code != 200 {
+		t.Fatalf("mock: %d %s", m.code, m.raw)
+	}
+	id := int64(m.body["id"].(float64))
+	do(t, h, "POST", fmt.Sprintf("/api/mock/%d/writing/start", id), auth, "")
+	body := jsonOf(t, map[string]any{"task2": words(260), "violations": 3})
+	if r := do(t, h, "POST", fmt.Sprintf("/api/mock/%d/writing", id), auth, body); r.code != 200 {
+		t.Fatalf("Writing с нарушениями: %d %s", r.code, r.raw)
+	}
+	wq, sq := queues(h)
+	for did, _ := wq.Step(t.Context()); did; did, _ = wq.Step(t.Context()) {
+	}
+	do(t, h, "POST", fmt.Sprintf("/api/mock/%d/speaking/start", id), auth, "")
+	files := []file{{"audio0", webm}, {"audio1", webm}, {"audio2", webm}}
+	if r := form(t, h, fmt.Sprintf("/api/mock/%d/speaking", id), auth, map[string]string{"seconds": "300", "violations": "1"}, files...); r.code != 200 {
+		t.Fatalf("Speaking: %d %s", r.code, r.raw)
+	}
+	for did, _ := sq.Step(t.Context()); did; did, _ = sq.Step(t.Context()) {
+	}
+	v := do(t, h, "GET", fmt.Sprintf("/api/mock/%d", id), auth, "")
+	parts := v.body["parts"].(map[string]any)
+	if parts["writing"].(map[string]any)["violations"] != 3.0 || parts["speaking"].(map[string]any)["violations"] != 1.0 {
+		t.Fatalf("нарушения в отчёте: %s", v.raw)
+	}
+	var wr, sr bool
+	pool.QueryRow(t.Context(), `SELECT writing_ranked, speaking_ranked FROM mocks WHERE id = $1`, id).Scan(&wr, &sr)
+	if wr || !sr {
+		t.Fatalf("в рейтинге: Writing %v (3 нарушения — нет), Speaking %v (1 — да)", wr, sr)
+	}
 }

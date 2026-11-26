@@ -264,6 +264,12 @@ func (s *server) submitMockSpeaking(w http.ResponseWriter, r *http.Request, u us
 		audio = append(audio, a)
 	}
 	secs, _ := strconv.Atoi(first(r.MultipartForm.Value["seconds"]))
+	// Нарушения честного режима (камера): с трёх Speaking не идёт в рейтинг; повторная отправка их не обнуляет.
+	violations, _ := strconv.Atoi(first(r.MultipartForm.Value["violations"]))
+	if _, err := s.DB.Exec(ctx, `UPDATE mocks SET speaking_violations = greatest(speaking_violations, $2) WHERE id = $1`, m.ID, max(violations, 0)); err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	if _, err := s.speaking.Create(ctx, speaking.NewCheck{UserID: u.ID, MockID: &m.ID, Source: "app", Questions: qs,
 		Audio: audio, Seconds: max(secs, 0), Lang: u.Lang}, 0, s.Now(), s.Now()); err != nil {
 		s.fail(w, r, err)

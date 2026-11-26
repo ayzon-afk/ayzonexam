@@ -24,6 +24,7 @@
   const laptop = isLaptop()
   let camOk = $state(cameraChecked())
   const ready = $derived(laptop && camOk)
+  let agreed = $state(false)
 
   const parts: { id: MockPart; name: string; min: number }[] = [
     { id: 'listening', name: 'Listening', min: 30 },
@@ -134,7 +135,13 @@
       {/if}
       {#if quota.credits > 0}{t('mock.credits', { n: quota.credits })}{/if}
     </p>
-    <button class="btn" disabled={starting || !ready} onclick={start}>{t('mock.start')}</button>
+    <!-- Правила — до таймера, как инструктаж на экзамене (DECISIONS 2026-11-25). -->
+    <h3>{t('mock.rules')}</h3>
+    <ul class="rules">
+      {#each ['mock.rule1', 'mock.rule2', 'mock.rule3', 'mock.rule4'] as const as k (k)}<li>{t(k)}</li>{/each}
+    </ul>
+    <label class="agree"><input type="checkbox" bind:checked={agreed} /> {t('mock.agree')}</label>
+    <button class="btn" disabled={starting || !ready || !agreed} onclick={start}>{t('mock.start')}</button>
     {#if error === 'mock.pay'}
       <p>{t('mock.pay')}</p>
       <button class="btn btn-plain" onclick={() => go({ s: 'premium' })}>{t('premium.go')}</button>
@@ -205,5 +212,24 @@
   .dot.checking {
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+
+  h3 {
+    margin: 4px 0 0;
+    font-size: 15px;
+  }
+
+  .rules {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding-left: 20px;
+    font-size: 14px;
+  }
+
+  .agree {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 </style>

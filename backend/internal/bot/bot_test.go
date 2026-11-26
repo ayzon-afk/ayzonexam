@@ -164,6 +164,13 @@ func TestStartParamOpensScreen(t *testing.T) {
 	if !strings.Contains(string(raw), `https://exam.example/app?open=d-abc123`) || !strings.Contains(body["text"].(string), "дуэль") {
 		t.Fatalf("ссылка-приглашение на дуэль: %v %s", body, raw)
 	}
+	// Кнопка сайта «Я учитель» — анкета в приложении.
+	b.Handle(context.Background(), msg("private", "/start apply-teacher", "ru"))
+	body = (*calls)[1].body
+	raw, _ = json.Marshal(body["reply_markup"])
+	if !strings.Contains(string(raw), `open=apply-teacher`) || !strings.Contains(body["text"].(string), "анкету") {
+		t.Fatalf("заявка учителя: %v %s", body, raw)
+	}
 }
 
 func TestOnUpdateTakesOver(t *testing.T) {

@@ -1,7 +1,7 @@
 import { haptic } from './telegram'
 
 // Честный mock (DECISIONS 2026-11-24): уход из приложения во время части mock — сигнал, вибрация и
-// предупреждение; третий уход закрывает часть. Камера — позже.
+// предупреждение; третий уход закрывает часть. Камера, полный экран, вставка — Proctor (DECISIONS 2026-11-25).
 
 export const MAX_LEAVES = 3
 
@@ -43,3 +43,23 @@ export function warn(sound = true) {
     // звук недоступен — вибрации достаточно
   }
 }
+
+// Полный экран браузера на ноутбуке (DECISIONS 2026-11-25): часть mock идёт на весь экран, выход — нарушение.
+// В Telegram Desktop браузерный полный экран недоступен (fullscreenEnabled = false) — там свой, Telegram.
+export const canLock = () => !!document.fullscreenEnabled
+
+export async function lockScreen(): Promise<boolean> {
+  try {
+    await document.documentElement.requestFullscreen({ navigationUI: 'hide' })
+    return true
+  } catch {
+    return false // нужен клик: покажем кнопку
+  }
+}
+
+export function unlockScreen() {
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+}
+
+// Второй монитор (Chrome и Edge знают о нём — screen.isExtended); другие браузеры — не проверяем.
+export const secondScreen = () => (screen as Screen & { isExtended?: boolean }).isExtended === true

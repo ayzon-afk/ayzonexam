@@ -143,9 +143,12 @@ func New(d Deps) *Server {
 	a("GET /api/cabinet", s.getCabinet)
 	a("PATCH /api/cabinet", s.patchCabinet)
 	a("POST /api/cabinet/code", s.cabinetCode)
+	a("POST /api/cabinet/order", s.cabinetOrder)
 	a("GET /api/cabinet/students", s.cabinetStudents)
 	a("DELETE /api/cabinet/students/{id}", s.cabinetRemove)
 	a("PUT /api/cabinet/students/{id}/role", s.cabinetRole)
+	a("GET /api/apply", s.getApply)
+	a("POST /api/apply", s.postApply)
 	a("GET /api/tournament", s.getTournament)
 	a("POST /api/tournament/join", s.joinTournament)
 	a("POST /api/tournament/start", s.startTournamentPart)
@@ -292,6 +295,7 @@ type meView struct {
 type myCenter struct {
 	ID     int64   `json:"id"`
 	Name   string  `json:"name"`
+	Kind   string  `json:"kind"`   // center, teacher — учитель без центра
 	Status string  `json:"status"` // pending, member
 	Role   *string `json:"role"`   // admin, teacher
 }
@@ -308,7 +312,7 @@ func (s *server) toMe(r *http.Request, u users.User) (meView, error) {
 	}
 	if u.CenterID != nil && u.CenterStatus != nil {
 		c := myCenter{ID: *u.CenterID, Status: *u.CenterStatus, Role: u.CenterRole}
-		if err := s.DB.QueryRow(r.Context(), `SELECT name FROM centers WHERE id = $1`, c.ID).Scan(&c.Name); err != nil {
+		if err := s.DB.QueryRow(r.Context(), `SELECT name, kind FROM centers WHERE id = $1`, c.ID).Scan(&c.Name, &c.Kind); err != nil {
 			return v, err
 		}
 		v.Center = &c
@@ -357,7 +361,7 @@ func (s *server) patchMe(w http.ResponseWriter, r *http.Request, u users.User) {
 		}
 		p.Nickname = &nick
 	}
-	if b.City != nil && *b.City != "tashkent" && *b.City != "other" {
+	if b.City != nil && !rating.ValidCity(*b.City) {
 		writeError(w, http.StatusBadRequest, "bad_city")
 		return
 	}

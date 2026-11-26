@@ -57,11 +57,28 @@
     </div>
   </section>
 
+  <!-- Честность по частям (DECISIONS 2026-11-25): с 3 нарушений часть не идёт в рейтинг. -->
+  <section class="card stack">
+    <h2>{t('mock.honesty')}</h2>
+    <ul class="rows honesty">
+      {#each order as p (p)}
+        {@const v = m.parts[p].violations ?? 0}
+        <li class="row">
+          <span class="grow">
+            {names[p]}
+            <span class:bad={v >= 3} class="tag">{v ? t('mock.viol', { n: v }) : t('mock.clean')}{v >= 3 ? ` · ${t('mock.unranked')}` : ''}</span>
+          </span>
+        </li>
+      {/each}
+    </ul>
+  </section>
+
   {#if m.weak.length}
     <section class="card stack">
       <h2>{t('report.weak')}</h2>
       <ul>
-        {#each m.weak as w (w.part + w.type)}
+        <!-- Тип вопроса без текста (новый тип из админки) — не пустой пункт, а пропуск. -->
+        {#each m.weak.filter((w) => t(`weak.${w.part}.${w.type}` as Key)) as w (w.part + w.type)}
           <li>{t(`weak.${w.part}.${w.type}` as Key, { pct: w.pct })}</li>
         {/each}
       </ul>
@@ -118,5 +135,18 @@
     padding-left: 20px;
     display: grid;
     gap: 8px;
+  }
+
+  .honesty {
+    padding: 0;
+  }
+
+  .honesty .tag {
+    display: block;
+  }
+
+  .bad {
+    color: var(--danger);
+    font-weight: 600;
   }
 </style>

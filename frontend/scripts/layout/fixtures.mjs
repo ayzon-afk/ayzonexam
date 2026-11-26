@@ -1,12 +1,16 @@
 // Ответы API для проверки вёрстки (scripts/layout.mjs). Формы — как в src/lib/api.ts и
 // screens/cabinet/cabinet.ts. Ники и названия — длинные нарочно: на них и ломается вёрстка.
-// Кто вошёл, видно по заголовку Authorization: «tma student», «tma owner», «tma teacher», «tma admin».
+// Кто вошёл, видно по заголовку Authorization: «tma student», «tma owner», «tma teacher», «tma admin»;
+// «tma nocity» — регион не указан, «tma newbie» — ещё не прошёл онбординг; «tma waiting» — аккаунт центра,
+// чья оплата тарифа на проверке; «tma solo» — учитель без центра (кабинет учителя); «tma applied» — заявка
+// на свой центр на проверке.
 
 const now = Date.parse('2026-11-25T09:00:00Z')
 const ago = (days) => new Date(now - days * 86400000).toISOString()
 const inDays = (days) => new Date(now + days * 86400000).toISOString()
 
 const CENTER = 'Cambridge Learning Centre — Chilonzor filiali'
+const TEACHER = 'Aziza Karimova — IELTS 8.5, Speaking va Writing'
 const nicks = ['Shahzoda_Abdurakhmonova', 'Javohir', 'Muhammadali.Toshpulatov', 'Dilnoza', 'Bek', 'Sevinch_2009', 'Azizbek Karimov', 'Madina', 'Otabek_IELTS_8', 'Nilufar']
 
 const plan = {
@@ -22,6 +26,8 @@ const plan = {
 }
 
 function me(persona) {
+  const solo = persona === 'solo'
+  if (persona === 'waiting' || solo) persona = 'owner'
   const role = persona === 'owner' ? 'admin' : persona === 'teacher' ? 'teacher' : null
   return {
     nickname: persona === 'owner' ? 'Cambridge_Chilonzor_Admin' : nicks[0],
@@ -30,9 +36,9 @@ function me(persona) {
     lang: 'ru',
     goal_band: 7.5,
     exam_date: '2027-03-14',
-    onboarded: true,
-    city: 'tashkent',
-    center: { id: 7, name: CENTER, status: 'member', role },
+    onboarded: persona !== 'newbie',
+    city: persona === 'nocity' || persona === 'newbie' ? '' : 'tashkent',
+    center: { id: 7, name: solo ? TEACHER : CENTER, kind: solo ? 'teacher' : 'center', status: 'member', role },
     bot: 'humostartup_bot',
     admin: persona === 'admin',
     verified_teacher: persona === 'teacher',
@@ -85,17 +91,17 @@ const check = {
   finished_at: ago(2),
 }
 
-const part = (state, band) => ({ state, band })
+const part = (state, band, violations = 0) => ({ state, band, violations })
 const mock = {
   id: 5,
   status: 'done',
   started_at: ago(3),
   finished_at: ago(3),
   overall: 6.5,
-  parts: { listening: part('done', 7), reading: part('done', 6.5), writing: part('done', 6), speaking: part('done', 6.5) },
+  parts: { listening: part('done', 7), reading: part('done', 6.5, 1), writing: part('done', 6, 3), speaking: part('done', 6.5) },
   writing_checks: [{ id: 101, task: 'task2', status: 'done', band: 6 }],
   speaking_check: { id: 301, task: 'speaking', status: 'done', band: 6.5 },
-  weak: [{ part: 'reading', type: 'tfng', pct: 48 }, { part: 'listening', type: 'map', pct: 55 }],
+  weak: [{ part: 'reading', type: 'tfng', pct: 48 }, { part: 'listening', type: 'detail', pct: 55 }],
   plan: ['writing', 'reading', 'speaking'],
   prev: { listening: 6.5, reading: 6.5, writing: 5.5, speaking: 6 },
 }
@@ -127,10 +133,12 @@ const students = nicks.map((n, i) => ({
   last_at: i === 9 ? null : ago(i * 3),
 }))
 
-const cabinet = (persona) => ({
+const order = { id: 41, seats: 130, months: 3, amount: 5850000, status: 'pending', created_at: ago(0.1) }
+const cabinet = (persona, waiting = persona === 'waiting', solo = persona === 'solo') => ((waiting || solo) && (persona = 'owner'), {
   center: {
     id: 7,
-    name: CENTER,
+    name: solo ? TEACHER : CENTER,
+    kind: solo ? 'teacher' : 'center',
     city: 'tashkent',
     about: 'IELTS 7+ за 6 месяцев. Адрес: Чиланзар, 9-й квартал. Телефон +998 90 123 45 67.',
     invite_code: 'k3m9xq2p7a',
@@ -142,12 +150,17 @@ const cabinet = (persona) => ({
     active_week: 96,
     avg: 6.72,
     scored: 87,
-    place: 2,
+    place: solo ? null : 2,
     centers: 14,
     delta: 1,
   },
   role: persona === 'owner' ? 'admin' : 'teacher',
-  ...(persona === 'owner' ? { payments: [{ amount: 1800000, seats: 120, paid_until: '2026-12-31', at: ago(25) }, { amount: 1650000, seats: 110, paid_until: '2026-11-30', at: ago(55) }] } : {}),
+  ...(persona === 'owner'
+    ? {
+        payments: [{ amount: 1800000, seats: 120, paid_until: '2026-12-31', at: ago(25) }, { amount: 1650000, seats: 110, paid_until: '2026-11-30', at: ago(55) }],
+        pay: { card: '8600 1234 5678 9012', holder: 'AYZON EXAM — Daurenbek Abdurakhmonov', code: 'AYC-7', pending: waiting ? order : null },
+      }
+    : {}),
 })
 
 const centerRow = (i) => ({ id: i + 1, place: i + 1, name: i === 1 ? CENTER : `IELTS Academy ${['Yunusobod', 'Mirzo Ulug‘bek', 'Sergeli', 'Chilonzor'][i % 4]}`, city: 'tashkent', avg: 7.1 - i * 0.2, scored: 40 - i, students: 120 - i * 5, delta: i % 3 - 1 })
@@ -182,8 +195,9 @@ export const routes = {
   'GET /api/speaking': { questions: { '1': { id: 1, part: 1, text: speakingCheck.questions[0].text }, '2': { id: 2, part: 2, text: speakingCheck.questions[1].text }, '3': { id: 3, part: 3, text: 'Why do some people prefer to live in big cities?' } }, history: [speakingCheck], quota: { used: 1, limit: 2, period: 'week', bonus: 0 } },
   'GET /api/speaking/:id': speakingCheck,
   'GET /api/pay/link': { path: '/pay?t=x' },
-  'GET /api/cabinet': (p) => (p === 'owner' || p === 'teacher' ? cabinet(p) : 403),
-  'GET /api/cabinet/students': (p) => (p === 'owner' || p === 'teacher' ? { students, me: 500 } : 403),
+  'GET /api/apply': (p) => ({ application: p === 'applied' ? { id: 3, kind: 'center', name: CENTER, city: 'tashkent', students: 140, status: 'pending', created_at: ago(0.2) } : null }),
+  'GET /api/cabinet': (p) => (['owner', 'waiting', 'solo', 'teacher'].includes(p) ? cabinet(p) : 403),
+  'GET /api/cabinet/students': (p) => (['owner', 'waiting', 'solo', 'teacher'].includes(p) ? { students, me: 500 } : 403),
   'GET /api/admin/overview': { users: 12840, active_day: 1320, active_week: 5410, new_day: 210, new_week: 1350, paying: 412, money_month: 18450000, money_total: 96400000, centers: 14, writing_day: 640, writing_month: 15400, speaking_day: 230, speaking_month: 5100, ai_cost_month: 84.37, pending_payments: 5, open_tickets: 3 },
   'GET /api/admin/users': { users: Array.from({ length: 12 }, (_, i) => adminRow(i)) },
   'GET /api/admin/centers': { centers: Array.from({ length: 5 }, (_, i) => ({ ...centerRow(i), about: 'О центре', invite_code: 'k3m9xq2p7a', seats: 120, paid_until: '2026-12-31', active: true, created_at: ago(60), pending: 2, staff: [{ id: 1, nickname: 'Cambridge_Chilonzor_Admin', name: 'Rustam', role: 'admin' }] })) },

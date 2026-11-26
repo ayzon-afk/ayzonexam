@@ -33,14 +33,17 @@
     <strong class="num">{c.avg !== null ? c.avg.toFixed(1) : '—'}</strong>
     <span class="hint">{c.avg !== null ? t('cab.scored', { n: c.scored }) : t('cab.noAvg')}</span>
   </div>
-  <div class="card tile">
-    <span class="hint">{t('cab.place')}</span>
-    <strong class="num">
-      {c.place ?? '—'}
-      {#if c.delta > 0}<span class="up">↑{c.delta}</span>{:else if c.delta < 0}<span class="down">↓{-c.delta}</span>{/if}
-    </strong>
-    {#if c.place}<span class="hint">{t('cab.of', { n: c.centers })}</span>{/if}
-  </div>
+  <!-- Учитель без центра в рейтинг центров не входит — места у него нет. -->
+  {#if c.kind !== 'teacher'}
+    <div class="card tile">
+      <span class="hint">{t('cab.place')}</span>
+      <strong class="num">
+        {c.place ?? '—'}
+        {#if c.delta > 0}<span class="up">↑{c.delta}</span>{:else if c.delta < 0}<span class="down">↓{-c.delta}</span>{/if}
+      </strong>
+      {#if c.place}<span class="hint">{t('cab.of', { n: c.centers })}</span>{/if}
+    </div>
+  {/if}
   {#if admin}
     <div class="card tile">
       <span class="hint">{t('cab.paidUntil')}</span>

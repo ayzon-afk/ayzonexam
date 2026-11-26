@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -224,7 +225,9 @@ func (s *server) adminUserPatch(w http.ResponseWriter, r *http.Request, a users.
 		if *b.CenterID == 0 {
 			err = s.rating.Leave(ctx, id)
 		} else {
-			_, err = s.DB.Exec(ctx, `UPDATE users SET center_id = $2, center_status = 'member' WHERE id = $1`, id, *b.CenterID)
+			// Город — как при входе по ссылке: свой регион ученика не меняется, пустой берётся у центра.
+			_, err = s.DB.Exec(ctx, `UPDATE users SET center_id = $2, center_status = 'member',
+				city = CASE WHEN city = '' THEN (SELECT c.city FROM centers c WHERE c.id = $2) ELSE city END WHERE id = $1`, id, *b.CenterID)
 		}
 		if err != nil {
 			s.fail(w, r, err)
@@ -264,7 +267,7 @@ func (s *server) adminUserPatch(w http.ResponseWriter, r *http.Request, a users.
 }
 
 func (s *server) adminCenters(w http.ResponseWriter, r *http.Request, _ users.User) {
-	s.listJSON(w, r, "centers", `SELECT c.id, c.name, c.city, c.about, c.invite_code, c.seats, c.paid_until, c.active, c.created_at,
+	s.listJSON(w, r, "centers", `SELECT c.id, c.name, c.kind, c.city, c.about, c.invite_code, c.seats, c.paid_until, c.active, c.created_at,
 			(SELECT count(*) FROM users m WHERE m.center_id = c.id AND m.center_status = 'member') AS students,
 			(SELECT count(*) FROM users m WHERE m.center_id = c.id AND m.center_status = 'pending') AS pending,
 			(SELECT coalesce(json_agg(json_build_object('id', m.id, 'nickname', m.nickname, 'name', m.first_name, 'role', m.center_role)), '[]')
@@ -274,6 +277,7 @@ func (s *server) adminCenters(w http.ResponseWriter, r *http.Request, _ users.Us
 
 type centerBody struct {
 	Name    string `json:"name"`
+	Kind    string `json:"kind"` // center, teacher — учитель без центра; пусто — center
 	City    string `json:"city"`
 	About   string `json:"about"`
 	Active  *bool  `json:"active"`
@@ -286,8 +290,13 @@ func (s *server) adminCenterSave(w http.ResponseWriter, r *http.Request, a users
 		return
 	}
 	b.Name = strings.TrimSpace(b.Name)
-	if b.City != "tashkent" && b.City != "other" {
-		b.City = "tashkent"
+	if !slices.Contains(rating.Regions, b.City) {
+		b.City = ""
+	}
+	// Пустой вид: новый — центр, у существующего — не меняется.
+	if b.Kind != "" && b.Kind != rating.KindCenter && b.Kind != rating.KindTeacher {
+		writeError(w, http.StatusBadRequest, "bad_kind")
+		return
 	}
 	if b.Name == "" || utf8.RuneCountInString(b.Name) > 80 || utf8.RuneCountInString(b.About) > 2000 {
 		writeError(w, http.StatusBadRequest, "bad_center")
@@ -297,9 +306,9 @@ func (s *server) adminCenterSave(w http.ResponseWriter, r *http.Request, a users
 	var id int64
 	var err error
 	if r.PathValue("id") == "" {
-		err = s.DB.QueryRow(ctx, `INSERT INTO centers (name, city, about, invite_code) VALUES ($1, $2, $3, $4) RETURNING id`,
-			b.Name, b.City, b.About, rating.NewCode()).Scan(&id)
-		s.audit(ctx, a.TelegramID, "center.create", "", map[string]any{"name": b.Name})
+		err = s.DB.QueryRow(ctx, `INSERT INTO centers (name, kind, city, about, invite_code) VALUES ($1, coalesce(nullif($2, ''), 'center'), $3, $4, $5) RETURNING id`,
+			b.Name, b.Kind, b.City, b.About, rating.NewCode()).Scan(&id)
+		s.audit(ctx, a.TelegramID, "center.create", "", map[string]any{"name": b.Name, "kind": b.Kind})
 	} else {
 		var ok bool
 		if id, ok = pathID(w, r); !ok {
@@ -310,8 +319,8 @@ func (s *server) adminCenterSave(w http.ResponseWriter, r *http.Request, a users
 			code = rating.NewCode()
 		}
 		_, err = s.DB.Exec(ctx, `UPDATE centers SET name = $2, city = $3, about = $4, active = coalesce($5, active),
-			invite_code = CASE WHEN $6 = '' THEN invite_code ELSE $6 END WHERE id = $1`, id, b.Name, b.City, b.About, b.Active, code)
-		s.audit(ctx, a.TelegramID, "center.update", "center:"+strconv.FormatInt(id, 10), map[string]any{"name": b.Name, "active": b.Active, "new_code": b.NewCode})
+			invite_code = CASE WHEN $6 = '' THEN invite_code ELSE $6 END, kind = coalesce(nullif($7, ''), kind) WHERE id = $1`, id, b.Name, b.City, b.About, b.Active, code, b.Kind)
+		s.audit(ctx, a.TelegramID, "center.update", "center:"+strconv.FormatInt(id, 10), map[string]any{"name": b.Name, "kind": b.Kind, "active": b.Active, "new_code": b.NewCode})
 	}
 	if isUnique(err) {
 		writeError(w, http.StatusConflict, "name_taken")

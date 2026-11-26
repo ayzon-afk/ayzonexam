@@ -44,17 +44,20 @@ type Mock struct {
 	SpeakingAt        *time.Time
 	StartedAt         time.Time
 	FinishedAt        *time.Time
+	// Нарушения честного режима (камера, уход, полный экран, вставка): с MaxLeaves часть не в рейтинге.
+	WritingViolations  int
+	SpeakingViolations int
 }
 
 const mockCols = `id, user_id, status, paid_with, listening_band::float8, reading_band::float8, writing_band::float8,
 	speaking_band::float8, overall::float8, writing_started_at, task1_prompt_id, task2_prompt_id, writing_at,
-	speaking_started_at, speaking_questions, speaking_at, started_at, finished_at`
+	speaking_started_at, speaking_questions, speaking_at, started_at, finished_at, writing_violations, speaking_violations`
 
 func scanMock(row pgx.Row) (Mock, error) {
 	var m Mock
 	err := row.Scan(&m.ID, &m.UserID, &m.Status, &m.PaidWith, &m.Listening, &m.Reading, &m.Writing, &m.Speaking, &m.Overall,
 		&m.WritingStartedAt, &m.Task1PromptID, &m.Task2PromptID, &m.WritingAt, &m.SpeakingStartedAt, &m.SpeakingQuestions, &m.SpeakingAt,
-		&m.StartedAt, &m.FinishedAt)
+		&m.StartedAt, &m.FinishedAt, &m.WritingViolations, &m.SpeakingViolations)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return m, ErrNotFound
 	}
@@ -205,7 +208,7 @@ func (s *Store) UpdateMock(ctx context.Context, mockID int64, now time.Time) (bo
 			b := WritingBand(t1, *t2)
 			m.Writing, m.WritingAt = &b, last
 			ranked = m.WritingStartedAt != nil && first != nil &&
-				!first.After(m.WritingStartedAt.Add(WritingMinutes*time.Minute+Grace))
+				!first.After(m.WritingStartedAt.Add(WritingMinutes*time.Minute+Grace)) && m.WritingViolations < MaxLeaves
 			if _, err := tx.Exec(ctx, `UPDATE mocks SET writing_band = $2, writing_at = $3, writing_ranked = $4 WHERE id = $1`,
 				mockID, b, last, ranked); err != nil {
 				return false, err
@@ -222,7 +225,8 @@ func (s *Store) UpdateMock(ctx context.Context, mockID int64, now time.Time) (bo
 		}
 		if band != nil {
 			m.Speaking = band
-			sr := m.SpeakingStartedAt != nil && created != nil && !created.After(m.SpeakingStartedAt.Add(SpeakingMinutes*time.Minute+Grace))
+			sr := m.SpeakingStartedAt != nil && created != nil && !created.After(m.SpeakingStartedAt.Add(SpeakingMinutes*time.Minute+Grace)) &&
+				m.SpeakingViolations < MaxLeaves
 			if _, err := tx.Exec(ctx, `UPDATE mocks SET speaking_band = $2, speaking_at = $3, speaking_ranked = $4 WHERE id = $1`,
 				mockID, *band, at, sr); err != nil {
 				return false, err

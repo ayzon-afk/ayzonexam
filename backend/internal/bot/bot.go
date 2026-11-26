@@ -261,6 +261,10 @@ func (b *Bot) Greet(ctx context.Context, chatID int64, lang, text string) error 
 	if strings.HasPrefix(param, "d-") {
 		key = "greet.duel"
 	}
+	// Кнопка «Добавить свой центр / Я учитель» на сайте (DECISIONS 2026-11-25).
+	if strings.HasPrefix(param, "apply") {
+		key = "greet.apply"
+	}
 	_, err := b.Send(ctx, chatID, T(lang, key), [][]Button{{{Text: T(lang, "btn.open"), Open: param}}})
 	return err
 }

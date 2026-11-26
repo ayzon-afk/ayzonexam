@@ -1,12 +1,14 @@
 <script lang="ts">
   import BandPicker from '../components/BandPicker.svelte'
+  import CityPicker from '../components/CityPicker.svelte'
   import { api, ApiError, type Me } from '../lib/api'
+  import type { City } from '../lib/cities'
   import { examDateRange } from '../lib/exam'
   import { t } from '../lib/i18n/index.svelte'
   import { haptic } from '../lib/telegram'
 
-  // Третий экран предлагает тест уровня; сам тест пока демо (этап 12), настоящий — в этапе 3.
-  const TOTAL = 3
+  // Цель, дата, регион (для рейтинга своего региона); последний экран предлагает тест уровня.
+  const TOTAL = 4
 
   let { ondone }: { ondone: (me: Me, levelTest: boolean) => void } = $props()
 
@@ -14,6 +16,7 @@
   let goal = $state<number | null>(null)
   let examDate = $state('')
   let unknownDate = $state(false)
+  let city = $state<'' | City>('')
   let saving = $state(false)
   let error = $state('')
 
@@ -23,7 +26,7 @@
     saving = true
     error = ''
     try {
-      const me = await api.updateMe({ goal_band: goal, exam_date: unknownDate ? null : examDate, onboarded: true })
+      const me = await api.updateMe({ goal_band: goal, exam_date: unknownDate ? null : examDate, city: city || undefined, onboarded: true })
       haptic.success()
       ondone(me, levelTest)
     } catch (e) {
@@ -61,6 +64,15 @@
     <footer>
       <button class="btn" disabled={!examDate} onclick={() => ((unknownDate = false), (step = 3))}>{t('onb.next')}</button>
       <button class="btn btn-plain" onclick={() => ((unknownDate = true), (step = 3))}>{t('onb.date.unknown')}</button>
+    </footer>
+  {:else if step === 3}
+    <section>
+      <h1>{t('onb.city.title')}</h1>
+      <p class="hint">{t('onb.city.hint')}</p>
+      <CityPicker value={city} onpick={(c) => (city = c)} />
+    </section>
+    <footer>
+      <button class="btn" disabled={!city} onclick={() => (step = 4)}>{t('onb.next')}</button>
     </footer>
   {:else}
     <section>

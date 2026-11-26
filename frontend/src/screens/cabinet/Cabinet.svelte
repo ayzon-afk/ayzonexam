@@ -1,11 +1,10 @@
 <script lang="ts">
-  import { untrack } from 'svelte'
   import Head from '../../components/Head.svelte'
   import Skeleton from '../../components/Skeleton.svelte'
   import { ApiError, type Me } from '../../lib/api'
   import { t } from '../../lib/i18n/index.svelte'
   import type { Route } from '../../lib/nav.svelte'
-  import { cab, sectionsFor, siteURL, type Cabinet } from './cabinet'
+  import { cab, cabTitle, sectionName, sectionsFor, siteURL, type Cabinet } from './cabinet'
 
   // Кабинет центра в Mini App: те же разделы, что на сайте (CabinetSite), — переключателем сверху.
   // Кнопка бота «Заявки» (open=center) открывает его сразу на заявках.
@@ -14,7 +13,8 @@
   let data = $state<Cabinet | null>(null)
   let denied = $state(false)
   let failed = $state(false)
-  let current = $state(untrack(() => (r.s === 'centerRequests' ? 'requests' : 'overview')))
+  const route = $derived(r as Extract<Route, { s: 'cabinet' | 'centerRequests' }>)
+  const current = $derived(route.section ?? (route.s === 'centerRequests' ? 'requests' : 'overview'))
 
   async function load() {
     failed = false
@@ -31,12 +31,12 @@
   const section = $derived(list.find((s) => s.id === current) ?? list[0])
 
   function goto(id: string) {
-    current = id
+    route.section = id
     window.scrollTo(0, 0)
   }
 </script>
 
-<Head title={t('cab.title')} sub={data?.center.name ?? me.center?.name ?? ''} demo={false} />
+<Head title={t(cabTitle(data?.center.kind ?? me.center?.kind))} sub={data?.center.name ?? me.center?.name ?? ''} demo={false} />
 
 {#if denied}
   <p class="card">{t('cab.noAccess')}</p>
@@ -49,7 +49,7 @@
   <div class="seg" role="tablist">
     {#each list as s (s.id)}
       <button role="tab" aria-selected={section.id === s.id} class:on={section.id === s.id} onclick={() => goto(s.id)}>
-        {t(s.name)}{#if s.id === 'requests' && data.center.pending}&nbsp;· {data.center.pending}{/if}
+        {t(sectionName(s, data.center.kind))}{#if s.id === 'requests' && data.center.pending}&nbsp;· {data.center.pending}{/if}
       </button>
     {/each}
   </div>

@@ -1,13 +1,19 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import Logo from '../../components/Logo.svelte'
   import Skeleton from '../../components/Skeleton.svelte'
   import { ApiError, type Me } from '../../lib/api'
   import { t } from '../../lib/i18n/index.svelte'
-  import { cab, sectionsFor, type Cabinet } from './cabinet'
+  import { showBack } from '../../lib/telegram'
+  import { cab, sectionName, sectionsFor, type Cabinet } from './cabinet'
 
   // Кабинет центра на сайте (DECISIONS 2026-11-25): /cabinet или center.<домен>, во всю ширину, как
   // админ-панель владельца: разделы слева, на телефоне — полосой сверху; раздел — в адресе (#students).
-  let { me, onlogout }: { me: Me; onlogout: () => void } = $props()
+  // С onexit — тот же кабинет в Telegram на широком экране (Shell): адрес не трогается (в нём данные
+  // входа Telegram), выход — «‹ В приложение» и кнопка «Назад» Telegram; start — открытый раздел,
+  // onsection — смена раздела (Shell хранит его в маршруте).
+  let { me, onlogout, onexit, start, onsection }: { me: Me; onlogout?: () => void; onexit?: () => void; start?: string; onsection?: (id: string) => void } =
+    $props()
 
   let data = $state<Cabinet | null>(null)
   let denied = $state(false)
@@ -26,16 +32,20 @@
 
   const list = $derived(data ? sectionsFor(data.role) : [])
   const fromHash = () => location.hash.slice(1) || 'overview'
-  let current = $state(fromHash())
+  let current = $state(untrack(() => (onexit ? (start ?? 'overview') : fromHash())))
   const section = $derived(list.find((s) => s.id === current) ?? list[0])
 
   function goto(id: string) {
     current = id
-    history.replaceState(null, '', `#${id}`)
+    if (!onexit) history.replaceState(null, '', `#${id}`)
+    onsection?.(id)
     window.scrollTo(0, 0)
   }
 
+  $effect(() => (onexit ? showBack(onexit) : undefined))
+
   $effect(() => {
+    if (onexit) return
     const on = () => (current = fromHash())
     addEventListener('hashchange', on)
     return () => removeEventListener('hashchange', on)
@@ -46,8 +56,12 @@
   <main class="alone">
     <Logo size={40} />
     <p>{t('cab.noAccess')}</p>
-    <a class="btn" href="/">{t('cab.toApp')}</a>
-    <button class="link" onclick={onlogout}>{t('cab.logout')}</button>
+    {#if onexit}
+      <button class="btn" onclick={onexit}>{t('cab.back')}</button>
+    {:else}
+      <a class="btn" href="/">{t('cab.toApp')}</a>
+      <button class="link" onclick={onlogout}>{t('cab.logout')}</button>
+    {/if}
   </main>
 {:else if failed}
   <main class="alone">
@@ -60,19 +74,23 @@
       <div class="brand"><Logo size={30} /></div>
       <div class="who">
         <strong>{data?.center.name ?? me.center?.name ?? ''}</strong>
-        <span class="hint">{data?.role === 'admin' ? t('cab.roleAdmin') : t('cab.roleTeacher')} · {me.nickname}</span>
+        <span class="hint">{data?.role === 'admin' && data.center.kind !== 'teacher' ? t('cab.roleAdmin') : t('cab.roleTeacher')} · {me.nickname}</span>
       </div>
       <nav aria-label={t('cab.sections')}>
         {#each list as s (s.id)}
           <button class:on={section?.id === s.id} aria-current={section?.id === s.id ? 'page' : undefined} onclick={() => goto(s.id)}>
-            {t(s.name)}
+            {t(sectionName(s, data?.center.kind))}
             {#if s.id === 'requests' && data?.center.pending}<span class="badge">{data.center.pending}</span>{/if}
           </button>
         {/each}
       </nav>
       <div class="foot">
-        <a href="/">{t('cab.toApp')}</a>
-        <button onclick={onlogout}>{t('cab.logout')}</button>
+        {#if onexit}
+          <button onclick={onexit}>{t('cab.back')}</button>
+        {:else}
+          <a href="/">{t('cab.toApp')}</a>
+          <button onclick={onlogout}>{t('cab.logout')}</button>
+        {/if}
       </div>
     </aside>
 
@@ -80,7 +98,7 @@
       {#if !data || !section}
         <Skeleton rows={6} />
       {:else}
-        <h1>{t(section.name)}</h1>
+        <h1>{t(sectionName(section, data.center.kind))}</h1>
         {#key section.id}
           {#await section.load()}
             <Skeleton rows={6} />
@@ -109,7 +127,7 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding: 24px 16px;
+    padding: calc(var(--safe-top) + 24px) 16px 24px;
     background: var(--section);
     border-right: 1px solid var(--separator);
   }
@@ -180,7 +198,7 @@
     min-width: 0;
     max-width: 1200px;
     width: 100%;
-    padding: 32px 32px 64px;
+    padding: calc(var(--safe-top) + 32px) 32px 64px;
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -222,7 +240,7 @@
       grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
       gap: 10px 12px;
-      padding: 12px 16px 10px;
+      padding: calc(var(--safe-top) + 12px) 16px 10px;
       border-right: 0;
       border-bottom: 1px solid var(--separator);
     }

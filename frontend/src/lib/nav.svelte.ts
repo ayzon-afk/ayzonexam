@@ -18,8 +18,10 @@ export type Route =
   | { s: 'tournament' }
   | { s: 'center'; id: number }
   | { s: 'centers' }
-  | { s: 'centerRequests' }
-  | { s: 'cabinet' }
+  // section — открытый раздел кабинета: переживает смену узкого вида на широкий (Shell).
+  | { s: 'centerRequests'; section?: string }
+  | { s: 'cabinet'; section?: string }
+  | { s: 'apply'; kind: 'center' | 'teacher' }
   | { s: 'practice'; part: Part }
   | { s: 'test'; from: TestSource }
   | { s: 'attempt'; id: number }
@@ -97,6 +99,10 @@ export function routeFromOpen(open: string): { tab: Tab; route?: Route } | null 
       return { tab: 'profile', route: { s: 'support' } }
     case 'center':
       return { tab: 'profile', route: { s: 'centerRequests' } }
+    case 'cabinet':
+      return { tab: 'profile', route: rest ? { s: 'cabinet', section: rest } : { s: 'cabinet' } }
+    case 'apply':
+      return { tab: 'profile', route: { s: 'apply', kind: rest === 'teacher' ? 'teacher' : 'center' } }
     case 'mock':
       return num ? { tab: 'exams', route: { s: 'report', id } } : { tab: 'exams', route: { s: 'mock' } }
     case 'speaking':

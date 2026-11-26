@@ -2,6 +2,8 @@
   import { onMount } from 'svelte'
   import Skeleton from '../../components/Skeleton.svelte'
   import { request } from '../../lib/api'
+  import { cityKey, REGIONS } from '../../lib/cities'
+  import { t } from '../../lib/i18n/index.svelte'
   import { compressPhoto } from '../../lib/photo'
   import { inviteLink } from '../../lib/share'
   import { adm, sum, when, type Row } from './admin'
@@ -26,7 +28,7 @@
 
   async function openCenter(c: Row | null) {
     note = ''
-    edit = c ? { ...c } : { name: '', city: 'tashkent', about: '', active: true }
+    edit = c ? { ...c } : { name: '', kind: 'center', city: 'tashkent', about: '', active: true }
     pays = c ? (await adm.get<{ payments: Row[] }>(`centers/${c.id}/payments`)).payments : []
     seats = c?.seats || 20
     amount = seats * 20000
@@ -35,7 +37,7 @@
   async function save(newCode = false) {
     if (!edit) return
     try {
-      const body = { name: edit.name, city: edit.city, about: edit.about, active: edit.active, new_code: newCode }
+      const body = { name: edit.name, kind: edit.kind, city: edit.city, about: edit.about, active: edit.active, new_code: newCode }
       if (edit.id) await adm.put(`centers/${edit.id}`, body)
       else await adm.post('centers', body)
       note = 'Сохранено.'
@@ -80,11 +82,16 @@
 {#if edit}
   <button class="btn btn-plain" onclick={() => (edit = null)}>‹ К списку</button>
   <section class="card stack">
-    <h2>{edit.id ? edit.name : 'Новый центр'}</h2>
-    <input bind:value={edit.name} placeholder="Название" />
+    <h2>{edit.id ? edit.name : 'Новый центр или учитель'}</h2>
+    <!-- Учитель без центра — тот же кабинет, ссылка и тариф, от 10 мест; в рейтинг центров не входит. -->
+    <select bind:value={edit.kind}>
+      <option value="center">Учебный центр</option>
+      <option value="teacher">Учитель без центра</option>
+    </select>
+    <input bind:value={edit.name} placeholder={edit.kind === 'teacher' ? 'Имя учителя, как увидят ученики' : 'Название'} />
     <select bind:value={edit.city}>
-      <option value="tashkent">Ташкент</option>
-      <option value="other">Другой город</option>
+      <option value="">— регион —</option>
+      {#each REGIONS as r (r)}<option value={r}>{t(cityKey(r))}</option>{/each}
     </select>
     <textarea bind:value={edit.about} placeholder="О центре: адрес, телефон, курсы"></textarea>
     {#if edit.id}<label class="check"><input type="checkbox" bind:checked={edit.active} /> Активен</label>{/if}
@@ -128,7 +135,7 @@
   {/if}
   {#if note}<p class="hint">{note}</p>{/if}
 {:else}
-  <button class="btn" onclick={() => openCenter(null)}>+ Новый центр</button>
+  <button class="btn" onclick={() => openCenter(null)}>+ Новый центр или учитель</button>
   {#if !list}
     <Skeleton rows={3} />
   {:else}
@@ -137,7 +144,7 @@
         <li>
           <button class="row" onclick={() => openCenter(c)}>
             <span class="grow">
-              <strong>{c.name}{c.active ? '' : ' (выключен)'}</strong>
+              <strong>{c.name}{c.kind === 'teacher' ? ' · учитель' : ''}{c.active ? '' : ' (выключен)'}</strong>
               <span class="tag">учеников {c.students} · ждут {c.pending} · оплачено до {c.paid_until ? new Date(c.paid_until).toLocaleDateString('ru-RU') : '—'}</span>
             </span>
             <span class="chev">›</span>

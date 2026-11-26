@@ -1,34 +1,49 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import Avatar from '../components/Avatar.svelte'
+  import CityPicker from '../components/CityPicker.svelte'
   import Delta from '../components/Delta.svelte'
   import Skeleton from '../components/Skeleton.svelte'
   import { api, type Board, type CenterRow, type Me, type Scope } from '../lib/api'
+  import { cityKey, isRegion, type City } from '../lib/cities'
   import { formatBand } from '../lib/exam'
   import { t, type Key } from '../lib/i18n/index.svelte'
   import { go } from '../lib/nav.svelte'
   import { haptic } from '../lib/telegram'
 
-  // Рейтинг по реальным баллам таймерных попыток за 60 дней: Ташкент, мой центр, друзья, страна, центры.
-  let { me }: { me: Me } = $props()
+  // Рейтинг по реальным баллам таймерных попыток за 60 дней: свой регион, мой центр, друзья, страна,
+  // центры. Регион не указан — выбирается прямо здесь; другая страна — сразу «Узбекистан».
+  let { me, onchange }: { me: Me; onchange: (me: Me) => void } = $props()
 
-  let scope = $state<Scope | 'centers'>('city')
+  let scope = $state<Scope | 'centers'>(untrack(() => (me.city === 'other' ? 'country' : 'city')))
   let board = $state<Board | null>(null)
   let centers = $state<CenterRow[] | null>(null)
   let failed = $state(false)
 
-  const scopes: { id: Scope | 'centers'; label: Key }[] = [
-    { id: 'city', label: 'rating.city' },
-    { id: 'center', label: 'rating.center' },
+  const scopes: { id: Scope | 'centers'; label: Key }[] = $derived([
+    ...(me.city === 'other' ? [] : [{ id: 'city' as const, label: isRegion(me.city) ? cityKey(me.city) : ('rating.region' as Key) }]),
+    { id: 'center', label: me.center?.kind === 'teacher' ? 'center.myTeacher' : 'rating.center' },
     { id: 'friends', label: 'rating.friends' },
     { id: 'country', label: 'rating.country' },
     { id: 'centers', label: 'rating.centers' },
-  ]
+  ])
+
+  async function pickCity(city: City) {
+    haptic.select()
+    try {
+      onchange(await api.updateMe({ city }))
+      if (city === 'other') scope = 'country'
+    } catch {
+      failed = true
+    }
+  }
 
   // Своё место — снизу, если его нет среди первых строк.
   const showMine = $derived(board?.mine && !board.rows.some((r) => r.me))
 
   $effect(() => {
     const s = scope
+    void me.city // сменился регион — рейтинг региона другой
     failed = false
     board = null
     if (s === 'centers') {
@@ -89,6 +104,11 @@
     </ol>
   {/if}
   <p class="hint">{t('rating.centersRule')}</p>
+{:else if scope === 'city' && !me.city}
+  <section class="card stack">
+    <p>{t('rating.pickRegion')}</p>
+    <CityPicker value="" onpick={pickCity} />
+  </section>
 {:else if scope === 'center' && me.center?.status !== 'member'}
   <section class="card stack">
     <p>{me.center?.status === 'pending' ? t('center.waiting', { name: me.center.name }) : t('rating.noCenter')}</p>

@@ -27,7 +27,7 @@ type User struct {
 	OnboardedAt *time.Time
 	CreatedAt   time.Time
 
-	City            string // '' — не указан, tashkent, other
+	City            string // '' — не указан, регион (rating.Regions) или other — другая страна
 	CenterID        *int64
 	CenterStatus    *string // pending, member
 	CenterRole      *string // admin, teacher — аккаунт центра и учитель

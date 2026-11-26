@@ -2,12 +2,14 @@
   import { onMount } from 'svelte'
   import BandPicker from '../components/BandPicker.svelte'
   import Chart from '../components/Chart.svelte'
+  import CityPicker from '../components/CityPicker.svelte'
   import { api, ApiError, type Me, type Stats } from '../lib/api'
+  import type { City } from '../lib/cities'
   import { fmtDate } from '../lib/date'
   import { examDateRange, formatBand } from '../lib/exam'
   import { LANGS, setLang, t, type Key, type Lang } from '../lib/i18n/index.svelte'
   import { go } from '../lib/nav.svelte'
-  import { closeApp, haptic, inTelegram } from '../lib/telegram'
+  import { canFullscreen, closeApp, haptic, inTelegram, isFullscreen, onFullscreen, setFullscreen } from '../lib/telegram'
   import { applyTheme, loadTheme, type Theme } from '../lib/theme'
 
   let { me, onchange, onlogout }: { me: Me; onchange: (me: Me) => void; onlogout: () => void } = $props()
@@ -46,7 +48,7 @@
     }
   }
 
-  async function setCity(city: 'tashkent' | 'other') {
+  async function setCity(city: City) {
     if (city === me.city) return
     haptic.select()
     try {
@@ -57,6 +59,9 @@
   }
 
   const telegram = inTelegram()
+  // Весь экран — кнопкой (на компьютере Telegram открывает так сразу, lib/telegram).
+  let full = $state(isFullscreen())
+  $effect(() => onFullscreen(() => (full = isFullscreen())))
   // На сайте «как в системе» — светлая (lib/theme), поэтому выбор только из двух.
   let theme = $state<Theme>(!telegram && loadTheme() === 'auto' ? 'light' : loadTheme())
   const themes: { id: Theme; label: Key }[] = [
@@ -170,7 +175,7 @@
 <ul class="card rows">
   <li>
     <button class="row" onclick={() => go(me.center?.status === 'member' ? { s: 'center', id: me.center.id } : { s: 'centers' })}>
-      <span class="grow">{t('profile.center')}</span>
+      <span class="grow">{me.center?.kind === 'teacher' ? t('center.myTeacher') : t('profile.center')}</span>
       <span class="hint">{me.center ? me.center.name + (me.center.status === 'pending' ? ' ⏳' : '') : t('center.choose')}</span>
       <span class="chev" aria-hidden="true">›</span>
     </button>
@@ -178,7 +183,7 @@
   {#if me.center?.status === 'member' && me.center.role}
     <li>
       <button class="row" onclick={() => go({ s: 'cabinet' })}>
-        <span class="grow">{t('cab.title')}<span class="tag">{t('cab.openSub')}</span></span>
+        <span class="grow">{t(me.center.kind === 'teacher' ? 'cab.titleTeacher' : 'cab.title')}<span class="tag">{t('cab.openSub')}</span></span>
         <span class="chev" aria-hidden="true">›</span>
       </button>
     </li>
@@ -201,10 +206,7 @@
 
 <section class="card">
   <h2>{t('profile.city')}</h2>
-  <div class="langs two" role="radiogroup">
-    <button role="radio" aria-checked={me.city === 'tashkent'} class:on={me.city === 'tashkent'} onclick={() => setCity('tashkent')}>{t('rating.city')}</button>
-    <button role="radio" aria-checked={me.city === 'other'} class:on={me.city === 'other'} onclick={() => setCity('other')}>{t('city.other')}</button>
-  </div>
+  <CityPicker value={me.city} onpick={setCity} />
 </section>
 
 <section class="card">
@@ -244,6 +246,14 @@
 </section>
 
 <ul class="card rows">
+  {#if canFullscreen()}
+    <li>
+      <button class="row" onclick={() => setFullscreen(!full)}>
+        <span class="grow">{full ? t('full.off') : t('full.on')}</span>
+        <span class="chev" aria-hidden="true">{full ? '↙' : '↗'}</span>
+      </button>
+    </li>
+  {/if}
   {#if me.admin}
     <li>
       <button class="row" onclick={() => go({ s: 'admin' })}>

@@ -94,7 +94,7 @@
     sending = true
     error = ''
     try {
-      await api.mockWriting(r.id, a1, a2)
+      await api.mockWriting(r.id, a1, a2, leaves)
       try {
         localStorage.removeItem(KEY)
       } catch {
@@ -132,7 +132,7 @@
       <h2>Task 1</h2>
       <p>{task1.text}</p>
       {#if task1.image}<img src={task1.image} alt="" />{/if}
-      <textarea bind:value={a1} readonly={frozen} placeholder={t('new.placeholder')} rows="10"></textarea>
+      <textarea bind:value={a1} readonly={frozen} placeholder={t('new.placeholder')} rows="10" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
       <p class="hint">{t('new.words', { n: w1, min: EXAM_WORDS.task1 })}</p>
     </section>
   {/if}
@@ -140,7 +140,7 @@
   <section class="card stack">
     <h2>Task 2</h2>
     <p>{task2.text}</p>
-    <textarea bind:value={a2} readonly={frozen} placeholder={t('new.placeholder')} rows="14"></textarea>
+    <textarea bind:value={a2} readonly={frozen} placeholder={t('new.placeholder')} rows="14" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
     <p class="hint">{t('new.words', { n: w2, min: EXAM_WORDS.task2 })}</p>
   </section>
 
