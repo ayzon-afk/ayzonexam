@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"ayzonexam/internal/bot"
+	"ayzonexam/internal/exam"
 )
 
 // Вопрос дня (хакатон, DECISIONS 2026-11-24): в 9:00 по Ташкенту бот шлёт вопрос из банка теста уровня всем,
@@ -22,6 +23,7 @@ type dailyQ struct {
 	Q       string   `json:"q"`
 	Options []string `json:"options"`
 	Answer  int      `json:"answer"`
+	Kind    string   `json:"kind,omitempty"` // вопрос дня — только выбор варианта (exam.KindChoice)
 }
 
 // pickDaily — вопрос для дня day: по порядку из банка видимых тестов уровня, по кругу.
@@ -42,7 +44,7 @@ func (s *server) pickDaily(ctx context.Context, day time.Time) (dailyQ, error) {
 			return dailyQ{}, err
 		}
 		for _, q := range qs {
-			if q.Q != "" && len(q.Options) >= 2 && q.Answer >= 0 && q.Answer < len(q.Options) {
+			if q.Q != "" && (q.Kind == "" || q.Kind == exam.KindChoice) && len(q.Options) >= 2 && q.Answer >= 0 && q.Answer < len(q.Options) {
 				all = append(all, q)
 			}
 		}

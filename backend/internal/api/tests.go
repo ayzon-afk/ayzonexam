@@ -13,9 +13,12 @@ import (
 
 // Reading, Listening и тест уровня (этап 3): ученик получает задание без ключа, ключ — после сдачи.
 
+// questionView — вопрос без ключа: Answer, Accept и Set ученик видит только после сдачи (resultView.Key).
 type questionView struct {
 	Q       string   `json:"q"`
 	Options []string `json:"options"`
+	Kind    string   `json:"kind,omitempty"`
+	Group   int      `json:"group,omitempty"`
 }
 
 type testView struct {
@@ -26,6 +29,16 @@ type testView struct {
 	Passage   string         `json:"passage,omitempty"`
 	Audio     string         `json:"audio,omitempty"`
 	Questions []questionView `json:"questions"`
+	Groups    []groupView    `json:"groups,omitempty"`
+}
+
+// groupView — общий блок вопросов; картинка — открытый файл /media/{id}.
+type groupView struct {
+	Title   string   `json:"title"`
+	Text    string   `json:"text,omitempty"`
+	Options []string `json:"options,omitempty"`
+	Image   string   `json:"image,omitempty"`
+	Pick    int      `json:"pick,omitempty"`
 }
 
 func toTestView(t exam.Test) testView {
@@ -34,26 +47,34 @@ func toTestView(t exam.Test) testView {
 		v.Audio = "/media/" + strconv.FormatInt(*t.AudioID, 10)
 	}
 	for _, q := range t.Questions {
-		v.Questions = append(v.Questions, questionView{q.Q, q.Options})
+		v.Questions = append(v.Questions, questionView{q.Q, q.Options, q.Kind, q.Group})
+	}
+	for _, g := range t.Groups {
+		gv := groupView{Title: g.Title, Text: g.Text, Options: g.Options, Pick: g.Pick}
+		if g.Image != nil {
+			gv.Image = "/media/" + strconv.FormatInt(*g.Image, 10)
+		}
+		v.Groups = append(v.Groups, gv)
 	}
 	return v
 }
 
 // resultView — сданная попытка: ответы ученика, ключ и (для Listening) сценарий.
 type resultView struct {
-	ID         int64     `json:"id"`
-	Kind       string    `json:"kind"`
-	Title      string    `json:"title"`
-	Correct    int       `json:"correct"`
-	Total      int       `json:"total"`
-	Band       float64   `json:"band"`
-	Ranked     bool      `json:"ranked"`
-	Answers    []int     `json:"answers"`
-	Key        []int     `json:"key"`
-	Transcript string    `json:"transcript,omitempty"`
-	FinishedAt time.Time `json:"finished_at"`
-	Test       testView  `json:"test"`
-	MockID     *int64    `json:"mock_id"`
+	ID         int64         `json:"id"`
+	Kind       string        `json:"kind"`
+	Title      string        `json:"title"`
+	Correct    int           `json:"correct"`
+	Total      int           `json:"total"`
+	Band       float64       `json:"band"`
+	Ranked     bool          `json:"ranked"`
+	Answers    []exam.Answer `json:"answers"`
+	Key        []any         `json:"key"` // по вопросу: номер варианта, верные буквы (multi) или допустимые ответы (text)
+	Marks      []bool        `json:"marks"`
+	Transcript string        `json:"transcript,omitempty"`
+	FinishedAt time.Time     `json:"finished_at"`
+	Test       testView      `json:"test"`
+	MockID     *int64        `json:"mock_id"`
 }
 
 func toResult(a exam.Attempt, t exam.Test) resultView {
@@ -63,8 +84,23 @@ func toResult(a exam.Attempt, t exam.Test) resultView {
 		v.FinishedAt = *a.FinishedAt
 	}
 	for _, q := range t.Questions {
-		v.Key = append(v.Key, q.Answer)
+		switch q.Kind {
+		case exam.KindText:
+			v.Key = append(v.Key, q.Accept)
+		case exam.KindMulti:
+			v.Key = append(v.Key, q.Set)
+		default:
+			v.Key = append(v.Key, q.Answer)
+		}
 	}
+	answers := make([]exam.Answer, len(t.Questions))
+	for i := range answers {
+		answers[i] = exam.NoAnswer
+		if i < len(a.Answers) {
+			answers[i] = a.Answers[i]
+		}
+	}
+	v.Marks = exam.Marks(t, answers)
 	return v
 }
 
@@ -117,8 +153,8 @@ func (s *server) start(w http.ResponseWriter, r *http.Request, u users.User, tes
 }
 
 type submitBody struct {
-	Answers []int `json:"answers"`
-	Leaves  int   `json:"leaves"`
+	Answers []exam.Answer `json:"answers"`
+	Leaves  int           `json:"leaves"`
 }
 
 func (s *server) submitAttempt(w http.ResponseWriter, r *http.Request, u users.User) {
@@ -127,7 +163,7 @@ func (s *server) submitAttempt(w http.ResponseWriter, r *http.Request, u users.U
 		return
 	}
 	var b submitBody
-	if !readJSON(w, r, &b, 16<<10) {
+	if !readJSON(w, r, &b, 32<<10) {
 		return
 	}
 	a, t, err := s.exam.Submit(r.Context(), u.ID, id, b.Answers, b.Leaves, s.Now())

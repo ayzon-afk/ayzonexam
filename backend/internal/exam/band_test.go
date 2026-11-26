@@ -50,14 +50,14 @@ func TestWritingBand(t *testing.T) {
 
 func TestGrade(t *testing.T) {
 	test := Test{Questions: []Question{{Options: []string{"a", "b"}, Answer: 1}, {Options: []string{"a", "b"}, Answer: 0}}}
-	c, norm, err := Grade(test, []int{1})
-	if err != nil || c != 1 || len(norm) != 2 || norm[1] != -1 {
+	c, norm, err := Grade(test, Answers(1))
+	if err != nil || c != 1 || len(norm) != 2 || norm[1] != NoAnswer {
 		t.Fatalf("недостающие ответы — без ответа: %d %v %v", c, norm, err)
 	}
-	if _, _, err := Grade(test, []int{0, 0, 0}); err != ErrAnswers {
+	if _, _, err := Grade(test, Answers(0, 0, 0)); err != ErrAnswers {
 		t.Fatal("лишние ответы — ошибка")
 	}
-	if _, _, err := Grade(test, []int{2}); err != ErrAnswers {
+	if _, _, err := Grade(test, Answers(2)); err != ErrAnswers {
 		t.Fatal("ответ вне вариантов — ошибка")
 	}
 }

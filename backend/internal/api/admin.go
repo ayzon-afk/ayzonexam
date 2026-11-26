@@ -626,7 +626,7 @@ func (s *server) adminTournamentAct(w http.ResponseWriter, r *http.Request, a us
 // Задания: Reading, Listening, тест уровня; темы Writing; вопросы Speaking.
 
 func (s *server) adminTests(w http.ResponseWriter, r *http.Request, _ users.User) {
-	s.listJSON(w, r, "tests", `SELECT t.id, t.kind, t.title, t.full_size, t.minutes, t.passage, t.transcript, t.audio_id, t.questions, t.active,
+	s.listJSON(w, r, "tests", `SELECT t.id, t.kind, t.title, t.full_size, t.minutes, t.passage, t.transcript, t.audio_id, t.questions, t.groups, t.source, t.active,
 			(SELECT count(*) FROM attempts a WHERE a.test_id = t.id AND a.finished_at IS NOT NULL) AS attempts
 		FROM tests t ORDER BY t.kind, t.id`)
 }
@@ -639,23 +639,23 @@ type testBody struct {
 	Passage    string          `json:"passage"`
 	Transcript string          `json:"transcript"`
 	Questions  []exam.Question `json:"questions"`
+	Groups     []exam.Group    `json:"groups"`
 	Active     bool            `json:"active"`
 }
 
 func validTest(b *testBody) bool {
 	b.Title = strings.TrimSpace(b.Title)
-	if !validKind(b.Kind) || b.Title == "" || b.Minutes < 1 || b.Minutes > 90 || len(b.Questions) == 0 || len(b.Questions) > 60 {
+	if !validKind(b.Kind) || b.Title == "" || b.Minutes < 1 || b.Minutes > 90 {
 		return false
 	}
-	if utf8.RuneCountInString(b.Passage) > 20000 || utf8.RuneCountInString(b.Transcript) > 20000 {
+	// Полный Reading канала — три текста, около 25 тысяч знаков.
+	if utf8.RuneCountInString(b.Passage) > 40000 || utf8.RuneCountInString(b.Transcript) > 40000 {
 		return false
 	}
-	for _, q := range b.Questions {
-		if strings.TrimSpace(q.Q) == "" || len(q.Options) < 2 || len(q.Options) > 6 || q.Answer < 0 || q.Answer >= len(q.Options) {
-			return false
-		}
+	if b.Groups == nil {
+		b.Groups = []exam.Group{}
 	}
-	return true
+	return exam.Validate(b.Questions, b.Groups) == nil
 }
 
 func (s *server) adminTestSave(w http.ResponseWriter, r *http.Request, a users.User) {
@@ -668,12 +668,13 @@ func (s *server) adminTestSave(w http.ResponseWriter, r *http.Request, a users.U
 		return
 	}
 	qs, _ := json.Marshal(b.Questions)
+	gs, _ := json.Marshal(b.Groups)
 	ctx := r.Context()
 	var id int64
 	var err error
 	if r.PathValue("id") == "" {
-		err = s.DB.QueryRow(ctx, `INSERT INTO tests (kind, title, full_size, minutes, passage, transcript, questions, active)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`, b.Kind, b.Title, b.FullSize, b.Minutes, b.Passage, b.Transcript, qs, b.Active).Scan(&id)
+		err = s.DB.QueryRow(ctx, `INSERT INTO tests (kind, title, full_size, minutes, passage, transcript, questions, groups, active)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`, b.Kind, b.Title, b.FullSize, b.Minutes, b.Passage, b.Transcript, qs, gs, b.Active).Scan(&id)
 		s.audit(ctx, a.TelegramID, "test.create", "", map[string]any{"title": b.Title})
 	} else {
 		var ok bool
@@ -681,7 +682,7 @@ func (s *server) adminTestSave(w http.ResponseWriter, r *http.Request, a users.U
 			return
 		}
 		_, err = s.DB.Exec(ctx, `UPDATE tests SET kind = $2, title = $3, full_size = $4, minutes = $5, passage = $6, transcript = $7,
-			questions = $8, active = $9 WHERE id = $1`, id, b.Kind, b.Title, b.FullSize, b.Minutes, b.Passage, b.Transcript, qs, b.Active)
+			questions = $8, groups = $9, active = $10 WHERE id = $1`, id, b.Kind, b.Title, b.FullSize, b.Minutes, b.Passage, b.Transcript, qs, gs, b.Active)
 		s.audit(ctx, a.TelegramID, "test.update", "test:"+strconv.FormatInt(id, 10), map[string]any{"active": b.Active})
 	}
 	if err != nil {

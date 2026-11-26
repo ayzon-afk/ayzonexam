@@ -27,6 +27,10 @@ type Question struct {
 	Options []string `json:"options"`
 	Answer  int      `json:"answer"`
 	Type    string   `json:"type"`
+	Kind    string   `json:"kind,omitempty"`   // вид: KindChoice ("" — тоже), KindText, KindMulti
+	Accept  []string `json:"accept,omitempty"` // KindText — допустимые ответы
+	Set     []int    `json:"set,omitempty"`    // KindMulti — верные буквы группы
+	Group   int      `json:"group,omitempty"`  // номер группы в Test.Groups с 1; 0 — без группы
 }
 
 type Test struct {
@@ -39,6 +43,8 @@ type Test struct {
 	Transcript string
 	AudioID    *int64
 	Questions  []Question
+	Groups     []Group
+	Source     string // тест канала (V10-T02-L) — повторная загрузка заменяет его
 	Active     bool
 }
 
@@ -61,7 +67,7 @@ type Attempt struct {
 	Title        string
 	StartedAt    time.Time
 	FinishedAt   *time.Time
-	Answers      []int // -1 — без ответа
+	Answers      []Answer
 	Correct      int
 	Total        int
 	Band         float64
@@ -90,16 +96,19 @@ func (s *Store) List(ctx context.Context, kind string, userID int64) ([]Summary,
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[Summary])
 }
 
-const testCols = `id, kind, title, full_size, minutes, passage, transcript, audio_id, questions, active`
+const testCols = `id, kind, title, full_size, minutes, passage, transcript, audio_id, questions, groups, source, active`
 
 func scanTest(row pgx.Row) (Test, error) {
 	var t Test
-	var qs []byte
-	err := row.Scan(&t.ID, &t.Kind, &t.Title, &t.FullSize, &t.Minutes, &t.Passage, &t.Transcript, &t.AudioID, &qs, &t.Active)
+	var qs, gs []byte
+	err := row.Scan(&t.ID, &t.Kind, &t.Title, &t.FullSize, &t.Minutes, &t.Passage, &t.Transcript, &t.AudioID, &qs, &gs, &t.Source, &t.Active)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return t, ErrNotFound
 	}
 	if err != nil {
+		return t, err
+	}
+	if err := json.Unmarshal(gs, &t.Groups); err != nil {
 		return t, err
 	}
 	return t, json.Unmarshal(qs, &t.Questions)
@@ -160,22 +169,22 @@ func (s *Store) Attempt(ctx context.Context, userID, id int64) (Attempt, Test, e
 }
 
 // Grade считает верные ответы. answers короче вопросов — недостающие без ответа.
-func Grade(t Test, answers []int) (correct int, normalized []int, err error) {
+func Grade(t Test, answers []Answer) (correct int, normalized []Answer, err error) {
 	if len(answers) > len(t.Questions) {
 		return 0, nil, ErrAnswers
 	}
-	normalized = make([]int, len(t.Questions))
+	normalized = make([]Answer, len(t.Questions))
 	for i, q := range t.Questions {
-		normalized[i] = -1
+		normalized[i] = NoAnswer
 		if i >= len(answers) {
 			continue
 		}
-		a := answers[i]
-		if a < -1 || a >= len(q.Options) {
-			return 0, nil, ErrAnswers
+		if normalized[i], err = clean(q, answers[i]); err != nil {
+			return 0, nil, err
 		}
-		normalized[i] = a
-		if a == q.Answer {
+	}
+	for _, ok := range Marks(t, normalized) {
+		if ok {
 			correct++
 		}
 	}
@@ -183,7 +192,7 @@ func Grade(t Test, answers []int) (correct int, normalized []int, err error) {
 }
 
 // Submit сдаёт попытку: проверка по ключу, балл, решение «в рейтинг или нет». Вторая сдача — ErrFinished.
-func (s *Store) Submit(ctx context.Context, userID, id int64, answers []int, leaves int, now time.Time) (Attempt, Test, error) {
+func (s *Store) Submit(ctx context.Context, userID, id int64, answers []Answer, leaves int, now time.Time) (Attempt, Test, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Attempt{}, Test{}, err
@@ -257,6 +266,14 @@ func Weak(pairs []Done) []TypeStats {
 	idx := map[[2]string]int{}
 	var out []TypeStats
 	for _, p := range pairs {
+		answers := make([]Answer, len(p.T.Questions))
+		for i := range answers {
+			answers[i] = NoAnswer
+			if i < len(p.A.Answers) {
+				answers[i] = p.A.Answers[i]
+			}
+		}
+		marks := Marks(p.T, answers)
 		for i, q := range p.T.Questions {
 			k := [2]string{p.T.Kind, q.Type}
 			n, ok := idx[k]
@@ -266,7 +283,7 @@ func Weak(pairs []Done) []TypeStats {
 				out = append(out, TypeStats{Kind: p.T.Kind, Type: q.Type})
 			}
 			out[n].Total++
-			if i < len(p.A.Answers) && p.A.Answers[i] == q.Answer {
+			if marks[i] {
 				out[n].Correct++
 			}
 		}
