@@ -25,7 +25,7 @@ jobs:
         include:
           - name: ayzon-exam
             context: .
-            file: deploy/Dockerfile
+            file: Dockerfile
           - name: ayzon-exam-backup
             context: deploy/backup
             file: deploy/backup/Dockerfile

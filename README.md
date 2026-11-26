@@ -40,13 +40,13 @@ Mars IT × Techstars Startup Week. Проект начат 15.11.2026; вся и
 
 ## Railway
 
-Проект `ayzon-exam` на Railway: сервис `ayzon-exam` из `deploy/Dockerfile` (переменная
+Проект `ayzon-exam` на Railway: сервис `ayzon-exam` из `Dockerfile` в корне (переменная
 `RAILWAY_DOCKERFILE_PATH`) и PostgreSQL от Railway. Миграции сервер делает сам при старте, бот ставит
 webhook на свой домен сам.
 
 | Переменная | Значение |
 |---|---|
-| `RAILWAY_DOCKERFILE_PATH` | `deploy/Dockerfile` — без неё Railway собирает корень как Node-проект |
+| `RAILWAY_DOCKERFILE_PATH` | `Dockerfile` — без неё Railway собирает корень как Node-проект |
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` — ссылка на базу Railway |
 | `PORT`, `ADDR` | `8080`, `:8080` |
 | `BOT_MODE` | `webhook` |

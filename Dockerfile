@@ -1,5 +1,5 @@
 # Образ AYZON EXAM (этап 7): интерфейс собирается Vite, сервер Go отдаёт его сам (WEB_DIR) — один процесс.
-# Сборка из корня: docker build -f deploy/Dockerfile -t ayzon-exam .
+# Сборка из корня: docker build -t ayzon-exam . (в корне — потому что mars.cloud и Railway берут Dockerfile оттуда)
 FROM node:24-alpine AS web
 WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json ./

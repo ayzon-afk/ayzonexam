@@ -6,7 +6,7 @@ services:
     image: ayzon-exam:local
     build:
       context: ..
-      dockerfile: deploy/Dockerfile
+      dockerfile: Dockerfile
     environment:
       # Без бота: Telegram не знает о localhost
       BOT_MODE: 'off'
