@@ -24,7 +24,7 @@ Mars IT × Techstars Startup Week. Проект начат 15.11.2026; вся и
 **На хакатоне сделано:**
 
 - публичный репозиторий для жюри с полной историей;
-- деплой на Railway: https://ayzon-exam-production.up.railway.app (раздел «Railway»), бот — @humostartup_bot;
+- деплой на Railway (раздел «Railway»; с 2026-11-26 приложение на mars.cloud), бот — @humostartup_bot;
 - проверка на телефоне в Telegram: онбординг → тест уровня → Writing с AI → Speaking → результат в боте — работает;
 - учёт реального использования: уникальные пользователи, честные активные минуты (пульс раз в 30 с), сессии,
   сданные тесты, повторные заходы — админка → «Использование» и CSV (DECISIONS 2026-11-24);
@@ -38,7 +38,25 @@ Mars IT × Techstars Startup Week. Проект начат 15.11.2026; вся и
 - честный mock только с ноутбука: проверка камеры перед началом, камера следит за взглядом (в сторону дольше
   5 с — сигнал), уходы и взгляд — одно правило «3 нарушения — часть сдана»;
 
-## Railway
+## mars.cloud (боевой сервер с 2026-11-26)
+
+Приложение — https://ayzon-exam.marsdot.uz (облако школы Mars IT, DECISIONS 2026-11-26), бот — @humostartup_bot.
+Приложение `ayzon-exam` собирается из `Dockerfile` в корне публичного репозитория
+github.com/ayzon-afk/ayzonexam; база — управляемый PostgreSQL Mars `ayzon-exam-db` (доступен только изнутри
+mars.cloud). Лимиты: 256 МБ памяти, пол-ядра, 20 соединений к базе (у сервера пул — 10).
+
+| Что | Как |
+|---|---|
+| Вход | `npx -y marshub@latest login` в обычном окне PowerShell — ссылка на подтверждение в @marshubbot видна сразу |
+| Обновить | `git push hackathon main` — Mars сам пересобирает за ~2 мин (авто-деплой) и пишет в Telegram; новая версия не стартовала — работает старая |
+| Логи, перезапуск | `npx -y marshub@latest cloud logs ayzon-exam`, `cloud restart ayzon-exam`; откат и история — дашборд https://cloud.marsdot.uz/dash |
+| Переменные | `DATABASE_URL` (из `db create`), `BOT_MODE=webhook`, `PUBLIC_URL` и `WEBAPP_URL` = адрес приложения, `GOMEMLIMIT=180MiB`, `BOT_TOKEN`, `ADMIN_IDS`, `WEBHOOK_SECRET`, `GEMINI_API_KEY`, `PAY_CARD`, `PAY_CARD_NAME`; `PORT` ставит Mars (8080) |
+| Копии базы | Mars — каждую ночь в 03:00, 7 дней, на том же сервере; восстановление — через группу `mars.space.devs` |
+
+Свой домен Mars не подключает — только `*.marsdot.uz`; `exam.ayzon.uz` — лендинг на Cloudflare
+(`Desktop/ayzon-exam-site`, `npx wrangler deploy`).
+
+## Railway (до 2026-11-26)
 
 Проект `ayzon-exam` на Railway: сервис `ayzon-exam` из `Dockerfile` в корне (переменная
 `RAILWAY_DOCKERFILE_PATH`) и PostgreSQL от Railway. Миграции сервер делает сам при старте, бот ставит
