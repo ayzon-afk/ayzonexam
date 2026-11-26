@@ -19,7 +19,9 @@ func TestStrictMock(t *testing.T) {
 		t.Fatalf("новый mock — строгий: %d %s", m.code, m.raw)
 	}
 	id := int64(m.body["id"].(float64))
-	part := func(kind string) resp { return do(t, h, "POST", fmt.Sprintf("/api/mock/%d/part", id), auth, `{"kind":"`+kind+`"}`) }
+	part := func(kind string) resp {
+		return do(t, h, "POST", fmt.Sprintf("/api/mock/%d/part", id), auth, `{"kind":"`+kind+`"}`)
+	}
 
 	if r := part("reading"); r.code != 409 || r.body["error"] != "order" {
 		t.Fatalf("Reading до Listening: %d %s", r.code, r.raw)
