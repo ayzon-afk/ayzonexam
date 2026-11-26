@@ -75,8 +75,13 @@ export type History = Quota & { checks: CheckSummary[] }
 // Задания (этап 3).
 export type Kind = 'reading' | 'listening' | 'level'
 export type TestSummary = { id: number; kind: Kind; title: string; minutes: number; count: number; full_size: boolean; last_band: number | null }
-export type Question = { q: string; options: string[] }
-export type TestView = { id: number; kind: Kind; title: string; minutes: number; passage?: string; audio?: string; questions: Question[] }
+// Виды вопросов (DECISIONS 2026-11-26): выбор, вписать, «выберите N» в группе; group — номер группы с 1.
+export type QKind = 'choice' | 'text' | 'multi'
+export type Question = { q: string; options: string[]; kind?: QKind; group?: number }
+export type Group = { title: string; text?: string; options?: string[]; image?: string; pick?: number }
+// Ответ: номер варианта (-1 — нет) или вписанный текст.
+export type Answer = number | string
+export type TestView = { id: number; kind: Kind; title: string; minutes: number; passage?: string; audio?: string; questions: Question[]; groups?: Group[] }
 export type Started = { attempt_id: number; ends_at: string; test: TestView }
 export type Result = {
   id: number
@@ -86,8 +91,10 @@ export type Result = {
   total: number
   band: number
   ranked: boolean
-  answers: number[]
-  key: number[]
+  answers: Answer[]
+  // По вопросу: номер варианта, верные буквы (multi) или допустимые ответы (text).
+  key: (number | number[] | string[])[]
+  marks: boolean[]
   transcript?: string
   finished_at: string
   test: TestView
@@ -322,7 +329,7 @@ export const api = {
 
   tests: (kind: Kind) => get<{ tests: TestSummary[] }>(`/api/tests?kind=${kind}`),
   startTest: (id: number) => post<Started>(`/api/tests/${id}/start`),
-  submit: (attempt: number, answers: number[], leaves: number) => post<Result>(`/api/attempts/${attempt}/submit`, { answers, leaves }),
+  submit: (attempt: number, answers: Answer[], leaves: number) => post<Result>(`/api/attempts/${attempt}/submit`, { answers, leaves }),
   attempt: (id: number) => get<Result>(`/api/attempts/${id}`),
 
   rating: (scope: Scope) => get<Board>(`/api/rating?scope=${scope}`),

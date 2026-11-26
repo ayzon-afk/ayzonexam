@@ -1,10 +1,10 @@
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte'
   import BackBar from '../../components/BackBar.svelte'
-  import Choice from '../../components/Choice.svelte'
   import Proctor from '../../components/Proctor.svelte'
+  import Questions from '../../components/Questions.svelte'
   import Skeleton from '../../components/Skeleton.svelte'
-  import { api, ApiError, type Started } from '../../lib/api'
+  import { api, ApiError, type Answer, type Started } from '../../lib/api'
   import { clock } from '../../lib/date'
   import { t, type Key } from '../../lib/i18n/index.svelte'
   import { back, replace, type TestSource } from '../../lib/nav.svelte'
@@ -23,14 +23,14 @@
 
   let started = $state<Started | null>(null)
   let error = $state<Key | ''>('')
-  let answers = $state<(number | null)[]>([])
+  let answers = $state<(Answer | null)[]>([])
   let leaves = $state(0)
   let sending = $state(false)
   let now = $state(Date.now())
 
   const store = (id: number) => `ayzon.attempt.${id}`
   const ends = $derived(started ? new Date(started.ends_at).getTime() : 0)
-  const answered = $derived(answers.filter((a) => a !== null).length)
+  const answered = $derived(answers.filter((a) => a !== null && a !== '' && a !== -1).length)
   const test = $derived(started?.test)
 
   function save() {
@@ -53,7 +53,7 @@
             : await api.startTournament(from.tour)
       answers = started.test.questions.map(() => null)
       try {
-        const saved = JSON.parse(localStorage.getItem(store(started.attempt_id)) ?? 'null') as { answers: (number | null)[]; leaves: number } | null
+        const saved = JSON.parse(localStorage.getItem(store(started.attempt_id)) ?? 'null') as { answers: (Answer | null)[]; leaves: number } | null
         if (saved && saved.answers.length === answers.length) {
           answers = saved.answers
           leaves = saved.leaves
@@ -203,9 +203,7 @@
     <p class="hint">{t('listening.once')}</p>
   {/if}
 
-  {#each test.questions as q, i (i)}
-    <Choice n={i + 1} {q} bind:value={answers[i]} />
-  {/each}
+  <Questions {test} bind:answers />
 
   {#if !honest && leaves > 0}<p class="hint warn">{t('test.leaves', { n: leaves })}</p>{/if}
   <button class="btn" disabled={sending} onclick={submit}>{t('practice.finish')}</button>

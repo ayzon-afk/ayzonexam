@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import Choice from '../../components/Choice.svelte'
   import Head from '../../components/Head.svelte'
+  import Questions from '../../components/Questions.svelte'
   import Skeleton from '../../components/Skeleton.svelte'
   import { api, type Result } from '../../lib/api'
   import { formatBand } from '../../lib/exam'
@@ -57,9 +57,7 @@
         {#each res.transcript.split('\n') as line, i (i)}<p>{line}</p>{/each}
       </section>
     {/if}
-    {#each res.test.questions as q, i (i)}
-      <Choice n={i + 1} {q} value={res.answers[i] === -1 ? null : res.answers[i]} right={res.key[i]} />
-    {/each}
+    <Questions test={res.test} answers={res.answers.map((a) => (a === -1 ? null : a))} key={res.key} marks={res.marks} />
   {/if}
   <button class="card row hist" onclick={() => go({ s: 'history' })}>
     <span class="grow">{t('history.title')}</span>

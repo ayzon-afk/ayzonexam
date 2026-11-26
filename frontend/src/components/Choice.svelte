@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { Question } from '../lib/api'
+  import type { Answer, Question } from '../lib/api'
 
   // Вопрос с вариантами. right — верный ответ (приходит после сдачи): показать его и ошибку ученика.
-  let { n, q, value = $bindable(), right }: { n: number; q: Question; value: number | null | undefined; right?: number } = $props()
+  let { n, q, value = $bindable(), right }: { n: number; q: Question; value: Answer | null | undefined; right?: number } = $props()
 
   const checked = $derived(right !== undefined)
 </script>

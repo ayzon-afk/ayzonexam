@@ -168,6 +168,33 @@ const centerRow = (i) => ({ id: i + 1, place: i + 1, name: i === 1 ? CENTER : `I
 const adminRow = (i) => ({ id: i + 1, telegram_id: 100000000 + i, nickname: nicks[i % nicks.length], first_name: 'Abdurakhmonova Shahzoda Rustamovna', username: 'shahzoda_abdurakhmonova', lang: 'ru', created_at: ago(i), seen_at: ago(0), premium_until: inDays(3), blocked_at: null, center_role: null, verified_teacher: false, center_status: 'member', center: CENTER })
 
 // routes: путь без ?query → ответ (функция от persona и адреса или значение). null — 204.
+
+// Тест канала: все виды вопросов (DECISIONS 2026-11-26) — заметки с пропусками, буквы из общего списка, «выберите ДВА».
+const L = ['A', 'B', 'C', 'D', 'E']
+const channelTest = {
+  id: 77, kind: 'listening', title: 'Volume 10 · Test 2 · Listening', minutes: 30, audio: '/media/1',
+  groups: [
+    { title: 'Questions 1–3. Complete the notes below. Write ONE WORD OR A NUMBER for each answer.', text: 'Store plan — weekly tasks\n• hand in book reports with the next assignment' },
+    { title: 'Questions 4–5. What is decided about the following categories of DVD? Choose A, B or C.', options: ['price of each item reduced', 'prices reduced for buying a certain number of items at the same time', 'prices kept at current level'] },
+    { title: 'Questions 6–7. Which TWO things does the speaker recommend? Choose TWO letters, A–E.', options: ['keeping a vocabulary notebook with long example sentences', 'reading aloud', 'listening to podcasts', 'joining a study group', 'watching films with subtitles'], pick: 2 },
+  ],
+  questions: [
+    { q: 'Move ____ cassette players into the stockroom.', options: [], kind: 'text', group: 1 },
+    { q: 'Make sure the stock is ____ .', options: [], kind: 'text', group: 1 },
+    { q: 'Check the accuracy of the ____ in the very last section of the extremely long monthly inventory report', options: [], kind: 'text', group: 1 },
+    { q: 'general films', options: L.slice(0, 3), group: 2 },
+    { q: 'foreign language films with subtitles in several languages', options: L.slice(0, 3), group: 2 },
+    { q: '', options: L, kind: 'multi', group: 3 },
+    { q: '', options: L, kind: 'multi', group: 3 },
+    { q: 'What is the main purpose of the talk?', options: ['To advertise a new store opening next to the station', 'To explain changes', 'To recruit volunteers'] },
+  ],
+}
+const channelResult = {
+  id: 88, kind: 'listening', title: channelTest.title, correct: 5, total: 8, band: 6, ranked: true,
+  answers: ['old', 'Labelled.', -1, 1, 2, 0, 3, 1], key: [['old'], ['labelled', 'labeled'], ['references'], 1, 0, [0, 4], [0, 4], 1],
+  marks: [true, true, false, true, false, true, false, true], finished_at: '2026-11-26T10:00:00Z', test: channelTest, mock_id: null,
+}
+
 export const routes = {
   'GET /api/info': { bot: 'humostartup_bot' },
   'GET /api/me': (p) => me(p),
@@ -179,6 +206,9 @@ export const routes = {
   'GET /api/writing/prompts': { prompts: [{ id: 1, task: 'task2', text: checks[0].prompt }, { id: 2, task: 'task2', text: 'Some people think that children should start school at a very early age. To what extent do you agree?' }] },
   'GET /api/writing/checks/:id': check,
   'GET /api/tests': (_, url) => ({ tests: Array.from({ length: 6 }, (_, i) => ({ id: i + 1, kind: url.searchParams.get('kind') ?? 'reading', title: `Cambridge IELTS 18 · Academic Test ${i + 1} · Passage ${i + 1}`, minutes: 20, count: 13, full_size: i === 0, last_band: i < 3 ? 6.5 + i * 0.5 : null })) }),
+  'POST /api/tests/:id/start': () => ({ attempt_id: 88, ends_at: new Date(Date.now() + 30 * 60_000).toISOString(), test: channelTest }),
+  'POST /api/attempts/:id/submit': channelResult,
+  'GET /api/attempts/:id': channelResult,
   'GET /api/rating': board,
   'GET /api/rating/centers': { centers: Array.from({ length: 8 }, (_, i) => centerRow(i)), mine: 2 },
   'GET /api/centers': { centers: Array.from({ length: 6 }, (_, i) => ({ ...centerRow(i), about: 'IELTS и General English', avg: null, place: null, top: null })) },
