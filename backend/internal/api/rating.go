@@ -250,6 +250,6 @@ func (s *server) startTournamentPart(w http.ResponseWriter, r *http.Request, u u
 	case err != nil:
 		s.fail(w, r, err)
 	default:
-		s.start(w, r, u, testID, nil, &tourID)
+		s.start(w, r, u, testID, nil, &tourID, s.Now())
 	}
 }

@@ -122,18 +122,19 @@ func (s *server) adminTestImport(w http.ResponseWriter, r *http.Request, a users
 
 	qs, _ := json.Marshal(b.Questions)
 	gs, _ := json.Marshal(b.Groups)
+	ps, _ := json.Marshal(b.Parts)
 	replaced := id != 0
 	if replaced {
 		_, err = tx.Exec(ctx, `UPDATE tests SET kind = $2, title = $3, full_size = $4, minutes = $5, passage = $6, transcript = $7,
-			questions = $8, groups = $9, audio_id = $10, active = false WHERE id = $1`,
-			id, b.Kind, b.Title, b.FullSize, b.Minutes, b.Passage, b.Transcript, qs, gs, audioID)
+			questions = $8, groups = $9, parts = $10, audio_id = $11, active = false WHERE id = $1`,
+			id, b.Kind, b.Title, b.FullSize, b.Minutes, b.Passage, b.Transcript, qs, gs, ps, audioID)
 		if err == nil && len(oldMedia) > 0 {
 			_, err = tx.Exec(ctx, `DELETE FROM media WHERE id = ANY($1)`, oldMedia)
 		}
 	} else {
-		err = tx.QueryRow(ctx, `INSERT INTO tests (kind, title, full_size, minutes, passage, transcript, questions, groups, audio_id, source, active)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false) RETURNING id`,
-			b.Kind, b.Title, b.FullSize, b.Minutes, b.Passage, b.Transcript, qs, gs, audioID, x.Source).Scan(&id)
+		err = tx.QueryRow(ctx, `INSERT INTO tests (kind, title, full_size, minutes, passage, transcript, questions, groups, parts, audio_id, source, active)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false) RETURNING id`,
+			b.Kind, b.Title, b.FullSize, b.Minutes, b.Passage, b.Transcript, qs, gs, ps, audioID, x.Source).Scan(&id)
 	}
 	if err == nil {
 		err = tx.Commit(ctx)
@@ -153,7 +154,7 @@ func (s *server) adminTest(w http.ResponseWriter, r *http.Request, _ users.User)
 		return
 	}
 	list, err := s.rowsJSON(r.Context(), `SELECT id, kind, title, full_size, minutes, passage, transcript, audio_id, questions, groups,
-			source, active FROM tests WHERE id = $1`, id)
+			parts, source, active FROM tests WHERE id = $1`, id)
 	if err != nil {
 		s.fail(w, r, err)
 		return

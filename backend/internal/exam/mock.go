@@ -20,6 +20,19 @@ const (
 	SpeakingMinutes = 20 // 11–14 минут разговора и запас на запись и отправку
 )
 
+// Transition — переход между частями строгого mock: таймер следующей части идёт не позже чем через минуту после
+// конца предыдущей, даже если ученик закрыл приложение (как на экзамене — L → R → W подряд).
+const Transition = time.Minute
+
+// NextStart — когда пошёл таймер следующей части строгого mock: сразу, если ученик открыл её за минуту, иначе —
+// через минуту после конца предыдущей.
+func NextStart(prevFinished, now time.Time) time.Time {
+	if at := prevFinished.Add(Transition); at.Before(now) {
+		return at
+	}
+	return now
+}
+
 var (
 	ErrMockActive = errors.New("уже есть незаконченный mock")
 	ErrPartTaken  = errors.New("часть уже сдана")
@@ -47,17 +60,19 @@ type Mock struct {
 	// Нарушения честного режима (камера, уход, полный экран, вставка): с MaxLeaves часть не в рейтинге.
 	WritingViolations  int
 	SpeakingViolations int
+	// Strict — L → R → W подряд, баллы — только в конце (DECISIONS 2026-11-26); mock до выкладки — false.
+	Strict bool
 }
 
 const mockCols = `id, user_id, status, paid_with, listening_band::float8, reading_band::float8, writing_band::float8,
 	speaking_band::float8, overall::float8, writing_started_at, task1_prompt_id, task2_prompt_id, writing_at,
-	speaking_started_at, speaking_questions, speaking_at, started_at, finished_at, writing_violations, speaking_violations`
+	speaking_started_at, speaking_questions, speaking_at, started_at, finished_at, writing_violations, speaking_violations, strict`
 
 func scanMock(row pgx.Row) (Mock, error) {
 	var m Mock
 	err := row.Scan(&m.ID, &m.UserID, &m.Status, &m.PaidWith, &m.Listening, &m.Reading, &m.Writing, &m.Speaking, &m.Overall,
 		&m.WritingStartedAt, &m.Task1PromptID, &m.Task2PromptID, &m.WritingAt, &m.SpeakingStartedAt, &m.SpeakingQuestions, &m.SpeakingAt,
-		&m.StartedAt, &m.FinishedAt, &m.WritingViolations, &m.SpeakingViolations)
+		&m.StartedAt, &m.FinishedAt, &m.WritingViolations, &m.SpeakingViolations, &m.Strict)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return m, ErrNotFound
 	}

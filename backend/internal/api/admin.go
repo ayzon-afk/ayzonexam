@@ -641,6 +641,7 @@ type testBody struct {
 	Transcript string          `json:"transcript"`
 	Questions  []exam.Question `json:"questions"`
 	Groups     []exam.Group    `json:"groups"`
+	Parts      []exam.Part     `json:"parts"`
 	Active     bool            `json:"active"`
 }
 
@@ -656,7 +657,10 @@ func validTest(b *testBody) bool {
 	if b.Groups == nil {
 		b.Groups = []exam.Group{}
 	}
-	return exam.Validate(b.Questions, b.Groups) == nil
+	if b.Parts == nil {
+		b.Parts = []exam.Part{}
+	}
+	return exam.Validate(b.Questions, b.Groups, b.Parts) == nil
 }
 
 func (s *server) adminTestSave(w http.ResponseWriter, r *http.Request, a users.User) {
@@ -670,12 +674,13 @@ func (s *server) adminTestSave(w http.ResponseWriter, r *http.Request, a users.U
 	}
 	qs, _ := json.Marshal(b.Questions)
 	gs, _ := json.Marshal(b.Groups)
+	ps, _ := json.Marshal(b.Parts)
 	ctx := r.Context()
 	var id int64
 	var err error
 	if r.PathValue("id") == "" {
-		err = s.DB.QueryRow(ctx, `INSERT INTO tests (kind, title, full_size, minutes, passage, transcript, questions, groups, active)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`, b.Kind, b.Title, b.FullSize, b.Minutes, b.Passage, b.Transcript, qs, gs, b.Active).Scan(&id)
+		err = s.DB.QueryRow(ctx, `INSERT INTO tests (kind, title, full_size, minutes, passage, transcript, questions, groups, parts, active)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`, b.Kind, b.Title, b.FullSize, b.Minutes, b.Passage, b.Transcript, qs, gs, ps, b.Active).Scan(&id)
 		s.audit(ctx, a.TelegramID, "test.create", "", map[string]any{"title": b.Title})
 	} else {
 		var ok bool
@@ -683,7 +688,7 @@ func (s *server) adminTestSave(w http.ResponseWriter, r *http.Request, a users.U
 			return
 		}
 		_, err = s.DB.Exec(ctx, `UPDATE tests SET kind = $2, title = $3, full_size = $4, minutes = $5, passage = $6, transcript = $7,
-			questions = $8, groups = $9, active = $10 WHERE id = $1`, id, b.Kind, b.Title, b.FullSize, b.Minutes, b.Passage, b.Transcript, qs, gs, b.Active)
+			questions = $8, groups = $9, parts = $10, active = $11 WHERE id = $1`, id, b.Kind, b.Title, b.FullSize, b.Minutes, b.Passage, b.Transcript, qs, gs, ps, b.Active)
 		s.audit(ctx, a.TelegramID, "test.update", "test:"+strconv.FormatInt(id, 10), map[string]any{"active": b.Active})
 	}
 	if err != nil {

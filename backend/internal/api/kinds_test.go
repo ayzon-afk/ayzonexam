@@ -12,7 +12,8 @@ import (
 func TestQuestionKinds(t *testing.T) {
 	h := newHandler(t, Deps{Admins: []int64{adminTG}})
 	admin, auth := initData(adminTG, ""), initData(9251, "")
-	body := `{"kind":"reading","title":"Volume 10 · Test 2 · Reading","minutes":20,"passage":"Text","active":true,
+	body := `{"kind":"reading","title":"Volume 10 · Test 2 · Reading","minutes":20,"active":true,
+		"parts":[{"title":"Passage 1","passage":"Siberian polecat","from":1,"to":3},{"title":"Passage 2","passage":"Text 2","from":4,"to":4}],
 		"groups":[{"title":"Questions 2–3. Choose TWO letters","pick":2},{"title":"Questions 4","options":["price","date"]}],
 		"questions":[
 			{"q":"Move ____ players","kind":"text","accept":["cassette"],"type":"gap"},
@@ -21,6 +22,9 @@ func TestQuestionKinds(t *testing.T) {
 			{"q":"Films","options":["A","B"],"answer":1,"group":2,"type":"matching"}]}`
 	if r := do(t, h, "POST", "/api/admin/tests", admin, strings.Replace(body, `"pick":2`, `"pick":3`, 1)); r.code != 400 {
 		t.Fatalf("«выберите N» не сходится — сохранилось: %d %s", r.code, r.raw)
+	}
+	if r := do(t, h, "POST", "/api/admin/tests", admin, strings.Replace(body, `"from":4,"to":4`, `"from":5,"to":5`, 1)); r.code != 400 {
+		t.Fatalf("дыра в частях — сохранилось: %d %s", r.code, r.raw)
 	}
 	r := do(t, h, "POST", "/api/admin/tests", admin, body)
 	if r.code != 200 {
@@ -38,6 +42,9 @@ func TestQuestionKinds(t *testing.T) {
 		if strings.Contains(st.raw, k) {
 			t.Fatalf("ключ %s ушёл ученику до сдачи: %s", k, st.raw)
 		}
+	}
+	if !strings.Contains(st.raw, `"parts":[{"title":"Passage 1","passage":"Siberian polecat","from":1,"to":3}`) {
+		t.Fatalf("части не дошли: %s", st.raw)
 	}
 	if !strings.Contains(st.raw, `"kind":"text"`) || !strings.Contains(st.raw, `"pick":2`) || !strings.Contains(st.raw, `"options":["price","date"]`) {
 		t.Fatalf("виды и группы не дошли: %s", st.raw)

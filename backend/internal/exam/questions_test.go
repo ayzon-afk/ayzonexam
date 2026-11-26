@@ -80,14 +80,14 @@ func TestAnswerJSON(t *testing.T) {
 
 func TestValidate(t *testing.T) {
 	tt := channelTest()
-	if err := Validate(tt.Questions, tt.Groups); err != nil {
+	if err := Validate(tt.Questions, tt.Groups, nil); err != nil {
 		t.Fatalf("верный тест: %v", err)
 	}
 	broken := func(change func(qs []Question, gs []Group) ([]Question, []Group)) error {
 		qs := append([]Question(nil), tt.Questions...)
 		gs := append([]Group(nil), tt.Groups...)
 		qs, gs = change(qs, gs)
-		return Validate(qs, gs)
+		return Validate(qs, gs, nil)
 	}
 	cases := map[string]func([]Question, []Group) ([]Question, []Group){
 		"вписать без ответов":    func(q []Question, g []Group) ([]Question, []Group) { q[1].Accept = nil; return q, g },
@@ -100,6 +100,28 @@ func TestValidate(t *testing.T) {
 	}
 	for name, change := range cases {
 		if broken(change) == nil {
+			t.Errorf("%s: прошло проверку", name)
+		}
+	}
+}
+
+func TestValidateParts(t *testing.T) {
+	tt := channelTest() // 5 вопросов
+	ok := []Part{{Title: "Part 1", Intro: "Listen and answer questions 1–2.", From: 1, To: 2}, {Title: "Part 2", From: 3, To: 5}}
+	if err := Validate(tt.Questions, tt.Groups, ok); err != nil {
+		t.Fatalf("верные части: %v", err)
+	}
+	bad := map[string][]Part{
+		"дыра":            {{Title: "P1", From: 1, To: 2}, {Title: "P2", From: 4, To: 5}},
+		"пересечение":     {{Title: "P1", From: 1, To: 3}, {Title: "P2", From: 3, To: 5}},
+		"не с первого":    {{Title: "P1", From: 2, To: 5}},
+		"не все вопросы":  {{Title: "P1", From: 1, To: 4}},
+		"без заголовка":   {{Title: " ", From: 1, To: 5}},
+		"больше четырёх":  {{Title: "1", From: 1, To: 1}, {Title: "2", From: 2, To: 2}, {Title: "3", From: 3, To: 3}, {Title: "4", From: 4, To: 4}, {Title: "5", From: 5, To: 5}},
+		"конец до начала": {{Title: "P1", From: 1, To: 0}},
+	}
+	for name, ps := range bad {
+		if Validate(tt.Questions, tt.Groups, ps) == nil {
 			t.Errorf("%s: прошло проверку", name)
 		}
 	}

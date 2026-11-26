@@ -27,6 +27,16 @@ type Group struct {
 	Pick    int      `json:"pick,omitempty"`
 }
 
+// Part — часть теста, как на компьютерном IELTS: Listening Part 1–4, Reading Passage 1–3 со своим текстом.
+// From и To — номера вопросов с 1 включительно; части идут подряд и покрывают все вопросы.
+type Part struct {
+	Title   string `json:"title"`
+	Intro   string `json:"intro,omitempty"`   // «Listen and answer questions 1–10.»
+	Passage string `json:"passage,omitempty"` // текст Reading этой части
+	From    int    `json:"from"`
+	To      int    `json:"to"`
+}
+
 // Answer — ответ на вопрос. В JSON — число (номер варианта, -1 — без ответа) или строка (вписанное);
 // старые попытки ([-1, 2, …]) читаются как есть.
 type Answer struct {
@@ -147,10 +157,28 @@ func inSet(set []int, v int) bool {
 	return false
 }
 
-// Validate — задание собрано правильно: виды вопросов, ключи, группы. Проверяет сохранение в админке и загрузку.
-func Validate(qs []Question, groups []Group) error {
+// Validate — задание собрано правильно: виды вопросов, ключи, группы, части. Проверяет сохранение в админке
+// и загрузку.
+func Validate(qs []Question, groups []Group, parts []Part) error {
 	if len(qs) == 0 || len(qs) > 60 {
 		return errors.New("вопросов — от 1 до 60")
+	}
+	if len(parts) > 4 {
+		return errors.New("частей — не больше 4")
+	}
+	next := 1
+	for _, p := range parts {
+		if strings.TrimSpace(p.Title) == "" || utf8.RuneCountInString(p.Title) > 200 || utf8.RuneCountInString(p.Intro) > 500 ||
+			utf8.RuneCountInString(p.Passage) > 20000 {
+			return errors.New("часть: заголовок до 200, вступление до 500, текст до 20 000")
+		}
+		if p.From != next || p.To < p.From {
+			return errors.New("части идут подряд с вопроса 1, без дыр и пересечений")
+		}
+		next = p.To + 1
+	}
+	if len(parts) > 0 && next != len(qs)+1 {
+		return errors.New("части покрывают все вопросы")
 	}
 	if len(groups) > 30 {
 		return errors.New("групп — не больше 30")

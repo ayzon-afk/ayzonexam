@@ -44,6 +44,7 @@ type Test struct {
 	AudioID    *int64
 	Questions  []Question
 	Groups     []Group
+	Parts      []Part // пусто — одна часть с Passage
 	Source     string // тест канала (V10-T02-L) — повторная загрузка заменяет его
 	Active     bool
 }
@@ -96,12 +97,12 @@ func (s *Store) List(ctx context.Context, kind string, userID int64) ([]Summary,
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[Summary])
 }
 
-const testCols = `id, kind, title, full_size, minutes, passage, transcript, audio_id, questions, groups, source, active`
+const testCols = `id, kind, title, full_size, minutes, passage, transcript, audio_id, questions, groups, parts, source, active`
 
 func scanTest(row pgx.Row) (Test, error) {
 	var t Test
-	var qs, gs []byte
-	err := row.Scan(&t.ID, &t.Kind, &t.Title, &t.FullSize, &t.Minutes, &t.Passage, &t.Transcript, &t.AudioID, &qs, &gs, &t.Source, &t.Active)
+	var qs, gs, ps []byte
+	err := row.Scan(&t.ID, &t.Kind, &t.Title, &t.FullSize, &t.Minutes, &t.Passage, &t.Transcript, &t.AudioID, &qs, &gs, &ps, &t.Source, &t.Active)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return t, ErrNotFound
 	}
@@ -109,6 +110,9 @@ func scanTest(row pgx.Row) (Test, error) {
 		return t, err
 	}
 	if err := json.Unmarshal(gs, &t.Groups); err != nil {
+		return t, err
+	}
+	if err := json.Unmarshal(ps, &t.Parts); err != nil {
 		return t, err
 	}
 	return t, json.Unmarshal(qs, &t.Questions)

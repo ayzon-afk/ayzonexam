@@ -50,13 +50,14 @@ type mockView struct {
 	Writing    []mockCheck         `json:"writing_checks"`
 	Speaking   *mockCheck          `json:"speaking_check"`
 	Weak       []weakView          `json:"weak"`
-	Plan       []string            `json:"plan"` // части по слабости: из них собирается план на 2 недели
-	Prev       map[string]float64  `json:"prev"` // баллы прошлого mock — для стрелок роста
+	Plan       []string            `json:"plan"`   // части по слабости: из них собирается план на 2 недели
+	Prev       map[string]float64  `json:"prev"`   // баллы прошлого mock — для стрелок роста
+	Strict     bool                `json:"strict"` // L → R → W подряд, баллы частей — только в конце
 }
 
 func (s *server) mockView(ctx context.Context, u users.User, m exam.Mock) (mockView, error) {
 	v := mockView{ID: m.ID, Status: m.Status, StartedAt: m.StartedAt, FinishedAt: m.FinishedAt, Overall: m.Overall,
-		Parts: map[string]partView{}, Writing: []mockCheck{}, Weak: []weakView{}, Plan: []string{}, Prev: map[string]float64{}}
+		Parts: map[string]partView{}, Writing: []mockCheck{}, Weak: []weakView{}, Plan: []string{}, Prev: map[string]float64{}, Strict: m.Strict}
 	for _, kind := range []string{exam.Listening, exam.Reading} {
 		p := partView{State: "todo"}
 		a, err := s.exam.PartAttempt(ctx, m.ID, kind)
@@ -135,6 +136,18 @@ func (s *server) mockView(ctx context.Context, u users.User, m exam.Mock) (mockV
 	if m.Status == "done" {
 		if err := s.fillReport(ctx, u, m, &v); err != nil {
 			return v, err
+		}
+	} else if m.Strict {
+		// Как на экзамене: результаты частей — вместе, в конце.
+		for k, p := range v.Parts {
+			p.Band = nil
+			v.Parts[k] = p
+		}
+		for i := range v.Writing {
+			v.Writing[i].Band = nil
+		}
+		if v.Speaking != nil {
+			v.Speaking.Band = nil
 		}
 	}
 	return v, nil
@@ -375,6 +388,14 @@ func (s *server) startMockPart(w http.ResponseWriter, r *http.Request, u users.U
 		writeJSON(w, http.StatusOK, startView{AttemptID: a.ID, EndsAt: a.StartedAt.Add(time.Duration(t.Minutes) * time.Minute), Test: toTestView(t)})
 		return
 	}
+	at := s.Now()
+	if m.Strict && b.Kind == exam.Reading {
+		prev, ok := s.prevPartDone(w, r, m, exam.Listening)
+		if !ok {
+			return
+		}
+		at = exam.NextStart(prev, at)
+	}
 	t, err := s.exam.Pick(ctx, b.Kind, u.ID)
 	if errors.Is(err, exam.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "no_tests")
@@ -384,7 +405,21 @@ func (s *server) startMockPart(w http.ResponseWriter, r *http.Request, u users.U
 		s.fail(w, r, err)
 		return
 	}
-	s.start(w, r, u, t.ID, &m.ID, nil)
+	s.start(w, r, u, t.ID, &m.ID, nil, at)
+}
+
+// prevPartDone — в строгом mock прошлая часть (kind) сдана: когда. Нет — 409 order, ответ уже записан.
+func (s *server) prevPartDone(w http.ResponseWriter, r *http.Request, m exam.Mock, kind string) (time.Time, bool) {
+	a, err := s.exam.PartAttempt(r.Context(), m.ID, kind)
+	if err != nil {
+		s.fail(w, r, err)
+		return time.Time{}, false
+	}
+	if a == nil || a.FinishedAt == nil {
+		writeError(w, http.StatusConflict, "order")
+		return time.Time{}, false
+	}
+	return *a.FinishedAt, true
 }
 
 type mockPrompt struct {
@@ -400,7 +435,15 @@ func (s *server) startMockWriting(w http.ResponseWriter, r *http.Request, u user
 		return
 	}
 	ctx := r.Context()
-	m, err := s.exam.StartWriting(ctx, m, s.Now())
+	at := s.Now()
+	if m.Strict && m.WritingStartedAt == nil {
+		prev, ok := s.prevPartDone(w, r, m, exam.Reading)
+		if !ok {
+			return
+		}
+		at = exam.NextStart(prev, at)
+	}
+	m, err := s.exam.StartWriting(ctx, m, at)
 	if err != nil {
 		s.fail(w, r, err)
 		return

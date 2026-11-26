@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -30,6 +31,7 @@ type testView struct {
 	Audio     string         `json:"audio,omitempty"`
 	Questions []questionView `json:"questions"`
 	Groups    []groupView    `json:"groups,omitempty"`
+	Parts     []exam.Part    `json:"parts,omitempty"`
 }
 
 // groupView — общий блок вопросов; картинка — открытый файл /media/{id}.
@@ -42,7 +44,7 @@ type groupView struct {
 }
 
 func toTestView(t exam.Test) testView {
-	v := testView{ID: t.ID, Kind: t.Kind, Title: t.Title, Minutes: t.Minutes, Passage: t.Passage}
+	v := testView{ID: t.ID, Kind: t.Kind, Title: t.Title, Minutes: t.Minutes, Passage: t.Passage, Parts: t.Parts}
 	if t.AudioID != nil {
 		v.Audio = "/media/" + strconv.FormatInt(*t.AudioID, 10)
 	}
@@ -134,13 +136,13 @@ func (s *server) startTest(w http.ResponseWriter, r *http.Request, u users.User)
 	if !ok {
 		return
 	}
-	s.start(w, r, u, id, nil, nil)
+	s.start(w, r, u, id, nil, nil, s.Now())
 }
 
-// start начинает попытку — общий путь практики, mock и турнира.
-func (s *server) start(w http.ResponseWriter, r *http.Request, u users.User, testID int64, mockID, tournamentID *int64) {
-	now := s.Now()
-	aid, t, err := s.exam.Start(r.Context(), u.ID, testID, mockID, tournamentID, now)
+// start начинает попытку — общий путь практики, mock и турнира. at — когда пошёл таймер: в строгом mock —
+// от конца прошлой части (exam.NextStart), иначе сейчас.
+func (s *server) start(w http.ResponseWriter, r *http.Request, u users.User, testID int64, mockID, tournamentID *int64, at time.Time) {
+	aid, t, err := s.exam.Start(r.Context(), u.ID, testID, mockID, tournamentID, at)
 	if errors.Is(err, exam.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "not_found")
 		return
@@ -149,7 +151,7 @@ func (s *server) start(w http.ResponseWriter, r *http.Request, u users.User, tes
 		s.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, startView{AttemptID: aid, EndsAt: now.Add(time.Duration(t.Minutes) * time.Minute), Test: toTestView(t)})
+	writeJSON(w, http.StatusOK, startView{AttemptID: aid, EndsAt: at.Add(time.Duration(t.Minutes) * time.Minute), Test: toTestView(t)})
 }
 
 type submitBody struct {
@@ -182,6 +184,10 @@ func (s *server) submitAttempt(w http.ResponseWriter, r *http.Request, u users.U
 		return
 	}
 	s.afterAttempt(r, u, a)
+	if s.hiddenPart(r.Context(), u, a) {
+		writeJSON(w, http.StatusOK, map[string]any{"id": a.ID, "mock_id": a.MockID, "hidden": true})
+		return
+	}
 	writeJSON(w, http.StatusOK, toResult(a, t))
 }
 
@@ -199,7 +205,20 @@ func (s *server) getAttempt(w http.ResponseWriter, r *http.Request, u users.User
 		s.fail(w, r, err)
 		return
 	}
+	if s.hiddenPart(r.Context(), u, a) {
+		writeError(w, http.StatusNotFound, "not_found")
+		return
+	}
 	writeJSON(w, http.StatusOK, toResult(a, t))
+}
+
+// hiddenPart — попытка — часть строгого mock, который ещё идёт: как на экзамене, балл и ключ — в отчёте.
+func (s *server) hiddenPart(ctx context.Context, u users.User, a exam.Attempt) bool {
+	if a.MockID == nil {
+		return false
+	}
+	m, err := s.exam.Mock(ctx, u.ID, *a.MockID)
+	return err == nil && m.Strict && m.Status != "done"
 }
 
 // media отдаёт открытый файл (аудио Listening). Файлы не меняются — кэш навсегда; Range для перемотки.

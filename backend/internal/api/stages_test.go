@@ -770,6 +770,8 @@ func TestMockViolations(t *testing.T) {
 		t.Fatalf("mock: %d %s", m.code, m.raw)
 	}
 	id := int64(m.body["id"].(float64))
+	// Здесь — только нарушения; порядок частей строгого mock проверяет TestStrictMock.
+	pool.Exec(t.Context(), `UPDATE mocks SET strict = false WHERE id = $1`, id)
 	do(t, h, "POST", fmt.Sprintf("/api/mock/%d/writing/start", id), auth, "")
 	body := jsonOf(t, map[string]any{"task2": words(260), "violations": 3})
 	if r := do(t, h, "POST", fmt.Sprintf("/api/mock/%d/writing", id), auth, body); r.code != 200 {
