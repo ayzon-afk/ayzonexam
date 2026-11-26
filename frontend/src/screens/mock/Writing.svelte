@@ -11,8 +11,10 @@
   import { haptic } from '../../lib/telegram'
   import { countWords, EXAM_WORDS } from '../../lib/writing'
 
-  // Writing полного mock: 60 минут на Task 1 (если в банке есть тема с графиком) и Task 2. Текст лежит в
-  // браузере — закрытое приложение ничего не теряет. Проверка — очередью AI, лимит не тратится.
+  // Writing полного mock: 60 минут на Task 1 (если в банке есть тема с графиком) и Task 2 — как на компьютерном
+  // IELTS (DECISIONS 2026-11-26): на весь экран, вкладки Task 1 / Task 2 внизу, на ноутбуке задание слева —
+  // ответ справа; на нуле таймера работа сдаётся сама. Текст лежит в браузере — закрытое приложение ничего
+  // не теряет. Проверка — очередью AI, лимит не тратится.
   let { r }: { r: { id: number } } = $props()
 
   let task1 = $state<MockPrompt | null>(null)
@@ -23,6 +25,7 @@
   let error = $state<Key | ''>('')
   let sending = $state(false)
   let now = $state(Date.now())
+  let task = $state<1 | 2>(1)
   // Честный режим (lib/proctor): уходы из приложения; с третьего текст закрыт и работа отправляется.
   let leaves = $state(0)
   const locked = $derived(leaves >= MAX_LEAVES)
@@ -45,6 +48,7 @@
       const res = await api.mockWritingStart(r.id)
       task1 = res.task1
       task2 = res.task2
+      if (!task1) task = 2
       ends = new Date(res.ends_at).getTime()
       const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null') as { a1: string; a2: string; leaves?: number } | null
       if (saved) ({ a1, a2 } = saved)
@@ -81,7 +85,15 @@
   }
   arm()
 
-  const tick = setInterval(() => (now = Date.now()), 1000)
+  // Время вышло — работа уходит сама, как на экзамене (один раз; «слишком коротко» — остаётся на экране).
+  let timeSent = false
+  const tick = setInterval(() => {
+    now = Date.now()
+    if (task2 && ends && now >= ends && !sending && !timeSent) {
+      timeSent = true
+      submit()
+    }
+  }, 1000)
   onDestroy(() => {
     clearInterval(tick)
     document.removeEventListener('visibilitychange', onVisibility)
@@ -112,69 +124,117 @@
   }
 </script>
 
-<BackBar onback={back} />
-
 {#if error && !task2}
+  <BackBar onback={back} />
   <p class="card">{t(error)}</p>
 {:else if !task2}
+  <BackBar onback={back} />
   <Skeleton rows={4} />
 {:else}
-  <h1>Writing · {t('mock.title')}</h1>
-  <div class="card bar">
-    <span class="num">{clock(ends - now)}</span>
-    <span class="hint">{t('mock.writingTime')}</span>
+  {@const prompt = task === 1 && task1 ? task1 : task2}
+  <div class="exam">
+    <header class="top">
+      <strong class="title">Writing · {t('mock.title')}</strong>
+      <span class="num timer" class:low={ends - now < 5 * 60_000}>{clock(ends - now)}</span>
+    </header>
+    <Proctor onviolation={violation} />
+    <p class="hint warn" role="status">{frozen ? t('mock.locked') : leaves > 0 ? t('mock.warn', { n: leaves }) : t('mock.honest')}</p>
+
+    <div class="body">
+      <section class="pane prompt">
+        <h2>Task {task1 ? task : 2}</h2>
+        <p>{prompt.text}</p>
+        {#if prompt.image}<img src={prompt.image} alt="" />{/if}
+        <p class="hint">{t('mock.writingTime')}</p>
+      </section>
+      <section class="pane answer">
+        {#if task === 1 && task1}
+          <textarea bind:value={a1} readonly={frozen} placeholder={t('new.placeholder')} spellcheck="false" autocomplete="off" autocapitalize="off"
+          ></textarea>
+          <p class="hint">{t('new.words', { n: w1, min: EXAM_WORDS.task1 })}</p>
+        {:else}
+          <textarea bind:value={a2} readonly={frozen} placeholder={t('new.placeholder')} spellcheck="false" autocomplete="off" autocapitalize="off"
+          ></textarea>
+          <p class="hint">{t('new.words', { n: w2, min: EXAM_WORDS.task2 })}</p>
+        {/if}
+        {#if error}<p class="error">{t(error)}</p>{/if}
+      </section>
+    </div>
+
+    <nav class="navi">
+      {#if task1}
+        <div class="seg tasks" role="tablist">
+          <button role="tab" aria-selected={task === 1} class:on={task === 1} onclick={() => (task = 1)}>Task 1 · {w1}</button>
+          <button role="tab" aria-selected={task === 2} class:on={task === 2} onclick={() => (task = 2)}>Task 2 · {w2}</button>
+        </div>
+      {/if}
+      <span class="grow"></span>
+      <button class="btn finish" disabled={sending || w2 < 50 || (!!task1 && w1 < 50)} onclick={submit}>{t('new.submit')}</button>
+    </nav>
   </div>
-  <Proctor onviolation={violation} />
-  <p class="hint warn" role="status">{frozen ? t('mock.locked') : leaves > 0 ? t('mock.warn', { n: leaves }) : t('mock.honest')}</p>
-
-  {#if task1}
-    <section class="card stack">
-      <h2>Task 1</h2>
-      <p>{task1.text}</p>
-      {#if task1.image}<img src={task1.image} alt="" />{/if}
-      <textarea bind:value={a1} readonly={frozen} placeholder={t('new.placeholder')} rows="10" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
-      <p class="hint">{t('new.words', { n: w1, min: EXAM_WORDS.task1 })}</p>
-    </section>
-  {/if}
-
-  <section class="card stack">
-    <h2>Task 2</h2>
-    <p>{task2.text}</p>
-    <textarea bind:value={a2} readonly={frozen} placeholder={t('new.placeholder')} rows="14" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
-    <p class="hint">{t('new.words', { n: w2, min: EXAM_WORDS.task2 })}</p>
-  </section>
-
-  {#if error}<p class="error">{t(error)}</p>{/if}
-  <button class="btn" disabled={sending || w2 < 50 || (!!task1 && w1 < 50)} onclick={submit}>{t('new.submit')}</button>
-  <p class="hint">{t('mock.writingHint')}</p>
 {/if}
 
 <style>
+  /* На весь экран поверх вкладок, как компьютерный IELTS (как экран задания exam/Test.svelte). */
+  .exam {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    padding-top: var(--safe-top);
+  }
+
+  .top {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--separator);
+    background: var(--section);
+  }
+
+  .title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .timer {
+    font-size: 18px;
+  }
+
+  .timer.low,
   .warn {
     color: var(--danger);
   }
 
-  h1 {
-    font-size: 24px;
+  .warn {
+    padding: 4px 16px 0;
+  }
+
+  .body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: max-content;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .pane {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+    padding: 12px 16px;
+    overflow-wrap: anywhere;
   }
 
   h2 {
     font-size: 16px;
-  }
-
-  .bar {
-    position: sticky;
-    top: calc(var(--safe-top) + 8px);
-    z-index: 1;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 16px;
-    box-shadow: 0 2px 12px rgb(0 0 0 / 0.08);
-  }
-
-  .bar .num {
-    font-size: 18px;
   }
 
   img {
@@ -183,6 +243,60 @@
   }
 
   textarea {
-    min-height: 220px;
+    min-height: 45vh;
+  }
+
+  .navi {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 12px calc(var(--safe-bottom) + 8px);
+    border-top: 1px solid var(--separator);
+    background: var(--section);
+    min-width: 0;
+  }
+
+  .tasks {
+    min-width: 0;
+  }
+
+  .grow {
+    flex: 1;
+  }
+
+  .finish {
+    width: auto;
+    flex: none;
+    min-height: 36px;
+    padding: 0 18px;
+  }
+
+  /* Ноутбук: задание слева, ответ справа, каждая колонка со своей прокруткой. */
+  @media (min-width: 900px) {
+    .body {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-auto-rows: auto;
+      overflow: hidden;
+    }
+
+    .pane {
+      min-height: 0;
+      overflow-y: auto;
+      padding: 16px 24px;
+    }
+
+    .prompt {
+      border-right: 1px solid var(--separator);
+    }
+
+    .answer {
+      grid-template-rows: minmax(0, 1fr) auto auto;
+    }
+
+    textarea {
+      min-height: 0;
+      height: 100%;
+      resize: none;
+    }
   }
 </style>

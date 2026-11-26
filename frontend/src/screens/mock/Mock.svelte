@@ -11,8 +11,10 @@
   import { go, type Route } from '../../lib/nav.svelte'
   import { haptic } from '../../lib/telegram'
 
-  // Полный mock по частям: Listening → Reading → Writing → Speaking. У каждой части свой таймер; между
-  // частями можно закрыть приложение и вернуться. Writing и Speaking проверяет AI — бот сообщит итог.
+  // Полный mock: Listening → Reading → Writing → Speaking. Новый (strict, DECISIONS 2026-11-26) — как на
+  // экзамене: L → R → W подряд, следующая часть открывается только после предыдущей, её таймер идёт сам;
+  // Speaking — в любое время; баллы — в конце. Mock до выкладки — по частям с паузами, как раньше.
+  // Writing и Speaking проверяет AI — бот сообщит итог.
   let active = $state<MockView | null>(null)
   let past = $state<MockSummary[]>([])
   let quota = $state<MockQuota | null>(null)
@@ -33,6 +35,14 @@
     { id: 'speaking', name: 'Speaking', min: 14 },
   ]
   const label: Record<string, Key> = { todo: 'mock.todo', running: 'mock.now', checking: 'mock.checking', done: 'mock.done' }
+
+  // Строгий mock: Reading — после Listening, Writing — после Reading; Speaking — когда угодно.
+  const before: Partial<Record<MockPart, MockPart>> = { reading: 'listening', writing: 'reading' }
+  function locked(m: MockView, p: MockPart): boolean {
+    const prev = before[p]
+    const st = prev ? m.parts[prev].state : 'done'
+    return m.strict && (st === 'todo' || st === 'running')
+  }
 
   async function load() {
     failed = false
@@ -64,7 +74,7 @@
   function open(p: MockPart) {
     if (!active || !ready) return
     const st = active.parts[p].state
-    if (st === 'done' || st === 'checking') return
+    if (st === 'done' || st === 'checking' || locked(active, p)) return
     const r: Route =
       p === 'listening' || p === 'reading'
         ? { s: 'test', from: { mock: active.id, kind: p } }
@@ -85,7 +95,7 @@
   const failedChecks = $derived(active ? active.writing_checks.some((c) => c.status === 'failed') || active.speaking_check?.status === 'failed' : false)
 </script>
 
-<Head title={t('mock.title')} sub={t('mock.lead')} demo={false} />
+<Head title={t('mock.title')} sub={active && !active.strict ? t('mock.lead') : t('mock.strictLead')} demo={false} />
 
 {#if !laptop}
   <p class="card">{t('mock.laptopOnly', { site: location.host })}</p>
@@ -108,7 +118,7 @@
       {#each parts as p (p.id)}
         {@const st = active.parts[p.id]}
         <li>
-          <button class="row" disabled={!ready || st.state === 'done' || st.state === 'checking'} onclick={() => open(p.id)}>
+          <button class="row" disabled={!ready || st.state === 'done' || st.state === 'checking' || locked(active, p.id)} onclick={() => open(p.id)}>
             <span class="dot {st.state}" aria-hidden="true"></span>
             <span class="grow">
               <strong>{p.name}</strong>
@@ -122,7 +132,7 @@
       {/each}
     </ol>
     {#if failedChecks}<p class="error">{t('mock.failedCheck')}</p>{/if}
-    <p class="hint">{t('mock.saved')}</p>
+    <p class="hint">{active.strict ? t('mock.strictSaved') : t('mock.saved')}</p>
   </section>
 {:else}
   <section class="card stack">
@@ -138,7 +148,7 @@
     <!-- Правила — до таймера, как инструктаж на экзамене (DECISIONS 2026-11-25). -->
     <h3>{t('mock.rules')}</h3>
     <ul class="rules">
-      {#each ['mock.rule1', 'mock.rule2', 'mock.rule3', 'mock.rule4'] as const as k (k)}<li>{t(k)}</li>{/each}
+      {#each ['mock.rule5', 'mock.rule1', 'mock.rule2', 'mock.rule3', 'mock.rule4'] as const as k (k)}<li>{t(k)}</li>{/each}
     </ul>
     <label class="agree"><input type="checkbox" bind:checked={agreed} /> {t('mock.agree')}</label>
     <button class="btn" disabled={starting || !ready || !agreed} onclick={start}>{t('mock.start')}</button>

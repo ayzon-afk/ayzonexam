@@ -189,6 +189,36 @@ const channelTest = {
     { q: 'What is the main purpose of the talk?', options: ['To advertise a new store opening next to the station', 'To explain changes', 'To recruit volunteers'] },
   ],
 }
+channelTest.parts = [
+  { title: 'Part 1', intro: 'Listen and answer questions 1–3.', from: 1, to: 3 },
+  { title: 'Part 2', intro: 'Listen and answer questions 4–5.', from: 4, to: 5 },
+  { title: 'Part 3', intro: 'Listen and answer questions 6–7.', from: 6, to: 7 },
+  { title: 'Part 4', intro: 'Listen and answer question 8.', from: 8, to: 8 },
+]
+// Reading канала: три текста, у каждого свои вопросы — текст слева, вопросы справа (на телефоне — переключатель).
+const para = (topic) =>
+  [
+    `A ${topic} has long fascinated researchers, who have argued for decades about its origins and its place in the wider history of the region.`,
+    'Early accounts were written by travellers who rarely stayed long enough to understand what they saw, and many of their descriptions mixed careful observation with rumour, exaggeration and an extraordinarily long list of unverifiable claims.',
+    'More recent work has relied on archives, interviews and laboratory analysis, giving a far more detailed picture of how ordinary people lived and worked.',
+  ].join('\n\n')
+const readingTest = {
+  id: 2, kind: 'reading', title: 'Volume 10 · Test 2 · Reading', minutes: 60,
+  parts: [
+    { title: 'Passage 1', intro: 'You should spend about 20 minutes on Questions 1–2.', passage: 'The Siberian polecat\n\n' + para('small predator'), from: 1, to: 2 },
+    { title: 'Passage 2', passage: 'Paper from Samarkand\n\n' + para('craft tradition'), from: 3, to: 4 },
+    { title: 'Passage 3', passage: 'Cities and their rivers\n\n' + para('river city'), from: 5, to: 6 },
+  ],
+  groups: [{ title: 'Questions 1–2. Do the following statements agree with the information given in Reading Passage 1?' }],
+  questions: [
+    { q: 'The polecat was first described by travellers.', options: ['TRUE', 'FALSE', 'NOT GIVEN'], group: 1 },
+    { q: 'Laboratory analysis confirmed every early account.', options: ['TRUE', 'FALSE', 'NOT GIVEN'], group: 1 },
+    { q: 'Samarkand paper was praised for being ____ .', options: [], kind: 'text' },
+    { q: 'What is the main idea of the passage?', options: ['History', 'Trade', 'Science'] },
+    { q: 'Rivers were used mainly for ____ .', options: [], kind: 'text' },
+    { q: 'Which statement best summarises the last paragraph?', options: ['Archives help', 'Travellers lied', 'Nothing is known'] },
+  ],
+}
 const channelResult = {
   id: 88, kind: 'listening', title: channelTest.title, correct: 5, total: 8, band: 6, ranked: true,
   answers: ['old', 'Labelled.', -1, 1, 2, 0, 3, 1], key: [['old'], ['labelled', 'labeled'], ['references'], 1, 0, [0, 4], [0, 4], 1],
@@ -206,7 +236,11 @@ export const routes = {
   'GET /api/writing/prompts': { prompts: [{ id: 1, task: 'task2', text: checks[0].prompt }, { id: 2, task: 'task2', text: 'Some people think that children should start school at a very early age. To what extent do you agree?' }] },
   'GET /api/writing/checks/:id': check,
   'GET /api/tests': (_, url) => ({ tests: Array.from({ length: 6 }, (_, i) => ({ id: i + 1, kind: url.searchParams.get('kind') ?? 'reading', title: `Cambridge IELTS 18 · Academic Test ${i + 1} · Passage ${i + 1}`, minutes: 20, count: 13, full_size: i === 0, last_band: i < 3 ? 6.5 + i * 0.5 : null })) }),
-  'POST /api/tests/:id/start': () => ({ attempt_id: 88, ends_at: new Date(Date.now() + 30 * 60_000).toISOString(), test: channelTest }),
+  'POST /api/tests/:id/start': (_, url) => ({
+    attempt_id: 88,
+    ends_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+    test: url.pathname.includes('/tests/2/') ? readingTest : channelTest,
+  }),
   'POST /api/attempts/:id/submit': channelResult,
   'GET /api/attempts/:id': channelResult,
   'GET /api/rating': board,
