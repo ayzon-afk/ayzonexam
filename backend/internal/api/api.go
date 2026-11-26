@@ -210,6 +210,8 @@ func New(d Deps) *Server {
 	adm("POST /api/admin/tournaments/{id}", s.adminTournamentAct)
 	adm("GET /api/admin/tests", s.adminTests)
 	adm("POST /api/admin/tests", s.adminTestSave)
+	adm("POST /api/admin/tests/import", s.adminTestImport)
+	adm("GET /api/admin/tests/{id}", s.adminTest)
 	adm("PUT /api/admin/tests/{id}", s.adminTestSave)
 	adm("POST /api/admin/tests/{id}/audio", s.adminTestAudio)
 	adm("POST /api/admin/tests/{id}/speak", s.adminTestSpeak)

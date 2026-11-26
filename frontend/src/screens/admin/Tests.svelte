@@ -1,13 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import Questions from '../../components/Questions.svelte'
   import Skeleton from '../../components/Skeleton.svelte'
-  import { authHeader, request } from '../../lib/api'
+  import { ApiError, authHeader, request, type Answer, type TestView } from '../../lib/api'
   import { compressPhoto } from '../../lib/photo'
   import { adm, type Row } from './admin'
 
   // Задания: Reading, Listening, тест уровня; аудио Listening — запись владельца или озвучка сценария
   // (Gemini, сжимается здесь в браузере); темы Writing (Task 1 — с картинкой графика для mock); вопросы
-  // Speaking. Свои задания, не из книг Cambridge (SPEC).
+  // Speaking. Свои задания и тесты канала «IELTS Volume» (DECISIONS 2026-11-26): их загружают папкой
+  // конвертера, тест приходит выключенным — владелец смотрит предпросмотр и включает.
   type View = 'tests' | 'prompts' | 'questions'
   let view = $state<View>('tests')
   let tests = $state<Row[] | null>(null)
@@ -15,6 +17,9 @@
   let questions = $state<Row[] | null>(null)
   let edit = $state<Row | null>(null)
   let qjson = $state('')
+  let gjson = $state('[]')
+  let preview = $state<TestView | null>(null)
+  let previewKey = $state<{ answers: (Answer | null)[]; key: (number | number[] | string[])[]; marks: boolean[] } | null>(null)
   let note = $state('')
   let busy = $state('')
 
@@ -29,10 +34,101 @@
     ])
   }
 
-  function openTest(t: Row | null) {
+  async function openTest(t: Row | null) {
     note = ''
-    edit = t ? { ...t } : { kind: 'reading', title: '', minutes: 20, full_size: false, passage: '', transcript: '', active: false }
-    qjson = t ? JSON.stringify(t.questions, null, 1) : sample
+    preview = null
+    if (!t) {
+      edit = { kind: 'reading', title: '', minutes: 20, full_size: false, passage: '', transcript: '', active: false }
+      qjson = sample
+      gjson = '[]'
+      return
+    }
+    // Список — без текстов и вопросов; задание целиком — отдельным запросом.
+    const full = (await adm.get<{ test: Row }>(`tests/${t.id}`)).test
+    edit = { ...full, attempts: t.attempts }
+    qjson = JSON.stringify(full.questions, null, 1)
+    gjson = JSON.stringify(full.groups, null, 1)
+  }
+
+  // Предпросмотр: тот же экран, что у ученика, с верными ответами вместо его ответов.
+  function showPreview() {
+    if (!edit) return
+    let qs: Row[], gs: Row[]
+    try {
+      qs = JSON.parse(qjson)
+      gs = JSON.parse(gjson)
+    } catch {
+      note = 'Вопросы или группы — не JSON.'
+      return
+    }
+    preview = {
+      id: edit.id ?? 0,
+      kind: edit.kind,
+      title: edit.title,
+      minutes: edit.minutes,
+      passage: edit.passage,
+      questions: qs.map((q) => ({ q: q.q, options: q.options ?? [], kind: q.kind, group: q.group })),
+      groups: gs.map((g) => ({ title: g.title, text: g.text, options: g.options, pick: g.pick, image: g.image ? `/media/${g.image}` : undefined })),
+    }
+    const answers: (Answer | null)[] = []
+    const used: Record<number, number> = {}
+    for (const q of qs) {
+      if (q.kind === 'text') answers.push(q.accept?.[0] ?? null)
+      else if (q.kind === 'multi') {
+        const k = used[q.group] ?? 0
+        used[q.group] = k + 1
+        answers.push(q.set?.[k] ?? null)
+      } else answers.push(q.answer)
+    }
+    previewKey = {
+      answers,
+      key: qs.map((q) => (q.kind === 'text' ? q.accept : q.kind === 'multi' ? q.set : q.answer)),
+      marks: qs.map(() => true),
+    }
+  }
+
+  // Папка конвертера: в каждой подпапке test.json, аудио (audio.*) и картинки групп (по image_file).
+  let imported = $state<string[]>([])
+  async function importFolder(files: FileList | null) {
+    if (!files?.length) return
+    const dirs = new Map<string, File[]>()
+    for (const f of files) {
+      const parts = f.webkitRelativePath.split('/')
+      if (parts.length < 2) continue
+      const dir = parts[parts.length - 2]!
+      dirs.set(dir, [...(dirs.get(dir) ?? []), f])
+    }
+    imported = []
+    let n = 0
+    for (const [dir, list] of dirs) {
+      const json = list.find((f) => f.name === 'test.json')
+      if (!json) continue
+      n++
+      busy = `Загрузка ${n}: ${dir}…`
+      const form = new FormData()
+      form.append('test', await json.text())
+      for (const f of list) {
+        if (/^audio\./i.test(f.name)) form.append('audio', f, f.name)
+        else if (/\.(png|jpe?g|webp)$/i.test(f.name)) form.append('image', f, f.name)
+      }
+      try {
+        const r = await request<{ id: number; replaced: boolean }>('POST', '/api/admin/tests/import', form)
+        imported.push(`✓ ${dir} — ${r.replaced ? 'заменён' : 'добавлен'} (выключен)`)
+      } catch (e) {
+        const code = e instanceof ApiError ? e.code : 'internal'
+        const why: Record<string, string> = {
+          has_attempts: 'уже есть попытки учеников — не заменяю',
+          no_audio: 'нет аудио',
+          no_image: 'нет картинки группы',
+          bad_test: 'ошибка в test.json',
+          bad_audio: 'аудио не mp3/ogg/m4a или больше 15 МБ',
+        }
+        imported.push(`✗ ${dir} — ${why[code] ?? code}`)
+      }
+    }
+    busy = ''
+    note = n ? `Загружено папок: ${n}. Новые тесты выключены — откройте, посмотрите предпросмотр и включите.` : 'В папке нет test.json.'
+    await load()
   }
 
   async function saveTest() {
@@ -44,14 +140,21 @@
       note = 'Вопросы — не JSON. Образец: ' + sample
       return
     }
-    const body = { kind: edit.kind, title: edit.title, full_size: edit.full_size, minutes: Number(edit.minutes), passage: edit.passage, transcript: edit.transcript, questions: qs, active: edit.active }
+    let gs
+    try {
+      gs = JSON.parse(gjson)
+    } catch {
+      note = 'Группы — не JSON (пустые — []).'
+      return
+    }
+    const body = { kind: edit.kind, title: edit.title, full_size: edit.full_size, minutes: Number(edit.minutes), passage: edit.passage, transcript: edit.transcript, questions: qs, groups: gs, active: edit.active }
     try {
       const res = edit.id ? await adm.put<{ id: number }>(`tests/${edit.id}`, body) : await adm.post<{ id: number }>('tests', body)
       edit.id = res.id
       note = 'Сохранено.'
       await load()
     } catch {
-      note = 'Не сохранилось: проверьте название, минуты (1–90) и вопросы (2–6 вариантов, answer — номер верного с 0).'
+      note = 'Не сохранилось: проверьте название, минуты (1–90), вопросы (выбор — 2–15 вариантов и answer с 0; text — accept; multi — group и set) и группы.'
     }
   }
 
@@ -62,7 +165,8 @@
       await request('POST', `/api/admin/tests/${edit.id}/audio`, blob)
       note = `Аудио сохранено (${Math.round(blob.size / 1024)} КБ). Listening виден ученикам, если задание активно.`
       await load()
-      edit = tests!.find((t) => t.id === edit!.id) ?? edit
+      const full = (await adm.get<{ test: Row }>(`tests/${edit.id}`)).test
+      edit = { ...edit, audio_id: full.audio_id }
     } catch {
       note = 'Аудио не сохранилось: нужен mp3, m4a, ogg, webm или wav до 15 МБ.'
     } finally {
@@ -181,11 +285,22 @@
       <label class="check"><input type="checkbox" bind:checked={edit.full_size} /> Полноразмерная часть для mock (около 40 вопросов)</label>
       {#if edit.kind === 'reading'}<textarea bind:value={edit.passage} rows="10" placeholder="Текст Reading. Абзацы — через пустую строку."></textarea>{/if}
       {#if edit.kind === 'listening'}<textarea bind:value={edit.transcript} rows="10" placeholder="Сценарий: «Имя: реплика» по строкам. Ученик видит его после сдачи; по нему же — озвучка."></textarea>{/if}
+      {#if edit.source}<p class="hint">Тест канала {edit.source} — правьте в конвертере и загрузите папку снова (пока нет попыток).</p>{/if}
       <textarea class="mono" bind:value={qjson} rows="12"></textarea>
-      <p class="hint">type: tfng, detail, main, vocab, grammar — по нему считаются слабые места в отчёте mock.</p>
+      <p class="hint">type: tfng, detail, main, vocab, grammar, gap, matching, map — по нему считаются слабые места в отчёте mock.</p>
+      <textarea class="mono" bind:value={gjson} rows="4" placeholder="Группы: []"></textarea>
+      <button class="btn btn-plain" onclick={showPreview}>Предпросмотр с ответами</button>
       <label class="check"><input type="checkbox" bind:checked={edit.active} /> Видно ученикам</label>
       <button class="btn" onclick={saveTest}>Сохранить</button>
     </section>
+    {#if preview && previewKey}
+      {#if preview.passage}
+        <article class="card stack">
+          {#each preview.passage.split('\n\n') as p, i (i)}<p>{p}</p>{/each}
+        </article>
+      {/if}
+      <Questions test={preview} answers={previewKey.answers} key={previewKey.key} marks={previewKey.marks} />
+    {/if}
     {#if edit.id && edit.kind === 'listening'}
       <section class="card stack">
         <h2>Аудио {edit.audio_id ? '✓ есть' : '— нет, ученикам не видно'}</h2>
@@ -196,13 +311,21 @@
     {/if}
   {:else}
     <button class="btn" onclick={() => openTest(null)}>+ Новое задание</button>
+    <label class="btn btn-plain file"
+      >Загрузить папку тестов канала<input type="file" webkitdirectory multiple onchange={(e) => importFolder((e.target as HTMLInputElement).files)} /></label
+    >
+    {#if imported.length}
+      <ul class="card stack">
+        {#each imported as line, i (i)}<li>{line}</li>{/each}
+      </ul>
+    {/if}
     <ul class="card rows">
       {#each tests as t (t.id)}
         <li>
           <button class="row" onclick={() => openTest(t)}>
             <span class="grow">
               <strong>{t.title}</strong>
-              <span class="tag">{kinds[t.kind]} · {t.questions.length} вопр. · {t.minutes} мин{t.full_size ? ' · для mock' : ''}{t.kind === 'listening' && !t.audio_id ? ' · без аудио' : ''} · сдали {t.attempts}</span>
+              <span class="tag">{t.source ? t.source + ' · ' : ''}{kinds[t.kind]} · {t.count} вопр. · {t.minutes} мин{t.full_size ? ' · для mock' : ''}{t.kind === 'listening' && !t.audio_id ? ' · без аудио' : ''} · сдали {t.attempts}</span>
             </span>
             <span class="tag">{t.active ? 'видно' : 'скрыто'}</span>
           </button>

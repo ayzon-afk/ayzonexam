@@ -626,7 +626,8 @@ func (s *server) adminTournamentAct(w http.ResponseWriter, r *http.Request, a us
 // Задания: Reading, Listening, тест уровня; темы Writing; вопросы Speaking.
 
 func (s *server) adminTests(w http.ResponseWriter, r *http.Request, _ users.User) {
-	s.listJSON(w, r, "tests", `SELECT t.id, t.kind, t.title, t.full_size, t.minutes, t.passage, t.transcript, t.audio_id, t.questions, t.groups, t.source, t.active,
+	// Без текстов и вопросов: с банком тестов канала их сотня, целиком задание отдаёт adminTest.
+	s.listJSON(w, r, "tests", `SELECT t.id, t.kind, t.title, t.full_size, t.minutes, t.audio_id, jsonb_array_length(t.questions) AS count, t.source, t.active,
 			(SELECT count(*) FROM attempts a WHERE a.test_id = t.id AND a.finished_at IS NOT NULL) AS attempts
 		FROM tests t ORDER BY t.kind, t.id`)
 }

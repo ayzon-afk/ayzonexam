@@ -229,6 +229,17 @@ export const routes = {
   'GET /api/cabinet': (p) => (['owner', 'waiting', 'solo', 'teacher'].includes(p) ? cabinet(p) : 403),
   'GET /api/cabinet/students': (p) => (['owner', 'waiting', 'solo', 'teacher'].includes(p) ? { students, me: 500 } : 403),
   'GET /api/admin/overview': { users: 12840, active_day: 1320, active_week: 5410, new_day: 210, new_week: 1350, paying: 412, money_month: 18450000, money_total: 96400000, centers: 14, writing_day: 640, writing_month: 15400, speaking_day: 230, speaking_month: 5100, ai_cost_month: 84.37, pending_payments: 5, open_tickets: 3 },
+  'GET /api/admin/tests': { tests: [
+    { id: 77, kind: 'listening', title: channelTest.title, full_size: true, minutes: 30, audio_id: 1, count: 40, source: 'V10-T02-L', active: false, attempts: 0 },
+    { id: 2, kind: 'reading', title: 'Samarkand paper — свой текст для практики, с длинным названием', full_size: false, minutes: 20, audio_id: null, count: 10, source: '', active: true, attempts: 1240 },
+  ] },
+  'GET /api/admin/tests/:id': { test: {
+    id: 77, kind: 'listening', title: channelTest.title, full_size: true, minutes: 30, passage: '', transcript: '', audio_id: 1, source: 'V10-T02-L', active: false,
+    groups: channelTest.groups,
+    questions: channelTest.questions.map((q, i) => ({ ...q, type: 'gap', ...(q.kind === 'text' ? { accept: channelResult.key[i] } : q.kind === 'multi' ? { set: channelResult.key[i] } : { answer: channelResult.key[i] }) })),
+  } },
+  'GET /api/admin/prompts': { prompts: [] },
+  'GET /api/admin/questions': { questions: [] },
   'GET /api/admin/users': { users: Array.from({ length: 12 }, (_, i) => adminRow(i)) },
   'GET /api/admin/centers': { centers: Array.from({ length: 5 }, (_, i) => ({ ...centerRow(i), about: 'О центре', invite_code: 'k3m9xq2p7a', seats: 120, paid_until: '2026-12-31', active: true, created_at: ago(60), pending: 2, staff: [{ id: 1, nickname: 'Cambridge_Chilonzor_Admin', name: 'Rustam', role: 'admin' }] })) },
 }

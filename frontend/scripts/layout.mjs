@@ -84,6 +84,8 @@ const CASES = {
   'web: админ обзор': W('admin', '/admin#overview'),
   'web: админ ученики': W('admin', '/admin#users'),
   'web: админ центры': W('admin', '/admin#centers'),
+  'web: админ задания': W('admin', '/admin#tests'),
+  'web: админ предпросмотр теста': W('admin', '/admin#tests', ['text:Volume 10', 'text:Предпросмотр']),
 }
 
 // ——— сервер: сборка из dist и ответы API ———
