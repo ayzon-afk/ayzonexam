@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -174,16 +173,9 @@ func (s *server) media(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	var mime string
-	var data []byte
-	err = s.DB.QueryRow(r.Context(), `SELECT mime, data FROM media WHERE id = $1 AND NOT private`, id).Scan(&mime, &data)
-	if err != nil {
+	if !s.serveMedia(w, r, id, true, "public, max-age=31536000, immutable") {
 		http.NotFound(w, r)
-		return
 	}
-	w.Header().Set("Content-Type", mime)
-	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(data))
 }
 
 // pathID читает {id} из пути; неверный — 404.

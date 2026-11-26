@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -446,15 +445,9 @@ func (s *server) adminMedia(w http.ResponseWriter, r *http.Request, _ users.User
 	if !ok {
 		return
 	}
-	var mime string
-	var data []byte
-	if err := s.DB.QueryRow(r.Context(), `SELECT mime, data FROM media WHERE id = $1`, id).Scan(&mime, &data); err != nil {
+	if !s.serveMedia(w, r, id, false, "private, max-age=3600") {
 		writeError(w, http.StatusNotFound, "not_found")
-		return
 	}
-	w.Header().Set("Content-Type", mime)
-	w.Header().Set("Cache-Control", "private, max-age=3600")
-	http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(data))
 }
 
 func (s *server) adminTickets(w http.ResponseWriter, r *http.Request, _ users.User) {
