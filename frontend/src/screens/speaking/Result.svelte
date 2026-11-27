@@ -106,7 +106,7 @@
   <h2 class="section">{t('speaking.transcript')}</h2>
   <section class="card stack">
     {#each c.questions as q, i (i)}
-      {#if q.text}<p class="hint">{q.part ? `Part ${q.part}: ` : ''}{q.text}</p>{/if}
+      {#if q.text}<p class="hint lines">{q.part ? `Part ${q.part}: ` : ''}{q.text}</p>{/if}
     {/each}
     <p class="text">{c.transcript}</p>
   </section>
@@ -175,5 +175,10 @@
   .text {
     white-space: pre-wrap;
     line-height: 1.55;
+  }
+
+  /* Part 1 и 3 полного mock: тема и вопросы — по строкам. */
+  .lines {
+    white-space: pre-line;
   }
 </style>

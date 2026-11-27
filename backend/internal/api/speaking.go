@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -211,7 +212,7 @@ func (s *server) startMockSpeaking(w http.ResponseWriter, r *http.Request, u use
 		s.fail(w, r, err)
 		return
 	}
-	var qs []ai.SpeakingQuestion
+	var qs []exam.SpeakingItem
 	json.Unmarshal(m.SpeakingQuestions, &qs)
 	if len(qs) == 0 {
 		writeError(w, http.StatusNotFound, "no_tests")
@@ -222,18 +223,56 @@ func (s *server) startMockSpeaking(w http.ResponseWriter, r *http.Request, u use
 	})
 }
 
+// speakingRecordings — вопросы Speaking mock по записям: одна запись на часть (DECISIONS 2026-11-27). В
+// Part 1 и 3 — список вопросов с секундой, когда вопрос появился на экране (marks[часть][вопрос]): так AI
+// понимает, где какой ответ. Старый mock — по одному вопросу на часть — как раньше.
+func speakingRecordings(items []exam.SpeakingItem, marks [][]int) []ai.SpeakingQuestion {
+	var groups [][]exam.SpeakingItem
+	for i, q := range items {
+		if i == 0 || q.Part != items[i-1].Part {
+			groups = append(groups, nil)
+		}
+		groups[len(groups)-1] = append(groups[len(groups)-1], q)
+	}
+	out := make([]ai.SpeakingQuestion, 0, len(groups))
+	for g, qs := range groups {
+		part := qs[0].Part
+		if part == 2 || (len(qs) == 1 && qs[0].Topic == "") {
+			out = append(out, ai.SpeakingQuestion{Part: part, Text: qs[0].Text})
+			continue
+		}
+		// Текст видит и ученик в разборе: тема и вопросы по строкам, секунда — в скобках.
+		var b strings.Builder
+		topic := ""
+		for k, q := range qs {
+			if part == 1 && q.Topic != topic {
+				topic = q.Topic
+				b.WriteString("Topic: " + topic + "\n")
+			}
+			at := ""
+			if g < len(marks) && len(marks[g]) == len(qs) && marks[g][k] >= 0 {
+				at = fmt.Sprintf(" (%d:%02d)", marks[g][k]/60, marks[g][k]%60)
+			}
+			fmt.Fprintf(&b, "%d.%s %s\n", k+1, at, q.Text)
+		}
+		out = append(out, ai.SpeakingQuestion{Part: part, Text: strings.TrimSpace(b.String())})
+	}
+	return out
+}
+
 // submitMockSpeaking — записи всех частей Speaking mock (audio0, audio1, …) одной проверкой.
 func (s *server) submitMockSpeaking(w http.ResponseWriter, r *http.Request, u users.User) {
 	m, ok := s.loadMock(w, r, u, true)
 	if !ok {
 		return
 	}
-	var qs []ai.SpeakingQuestion
-	json.Unmarshal(m.SpeakingQuestions, &qs)
-	if m.SpeakingStartedAt == nil || len(qs) == 0 {
+	var items []exam.SpeakingItem
+	json.Unmarshal(m.SpeakingQuestions, &items)
+	if m.SpeakingStartedAt == nil || len(items) == 0 {
 		writeError(w, http.StatusConflict, "not_started")
 		return
 	}
+	qs := speakingRecordings(items, nil)
 	if code := parseForm(w, r, int64(len(qs))*speaking.MaxAudioBytes+64<<10); code != "" {
 		writeError(w, http.StatusBadRequest, strings.Replace(code, "image", "audio", 1))
 		return
@@ -262,6 +301,10 @@ func (s *server) submitMockSpeaking(w http.ResponseWriter, r *http.Request, u us
 			return
 		}
 		audio = append(audio, a)
+	}
+	var marks [][]int
+	if json.Unmarshal([]byte(first(r.MultipartForm.Value["marks"])), &marks) == nil {
+		qs = speakingRecordings(items, marks)
 	}
 	secs, _ := strconv.Atoi(first(r.MultipartForm.Value["seconds"]))
 	// Нарушения честного режима (камера): с трёх Speaking не идёт в рейтинг; повторная отправка их не обнуляет.

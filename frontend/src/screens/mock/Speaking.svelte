@@ -3,25 +3,37 @@
   import BackBar from '../../components/BackBar.svelte'
   import Proctor from '../../components/Proctor.svelte'
   import Skeleton from '../../components/Skeleton.svelte'
-  import { api } from '../../lib/api'
+  import { api, type SpeakingItem } from '../../lib/api'
   import { clock } from '../../lib/date'
   import { t, type Key } from '../../lib/i18n/index.svelte'
   import { back } from '../../lib/nav.svelte'
   import { canRecord, startRecording, type Recorder, type Recording } from '../../lib/recorder'
   import { haptic } from '../../lib/telegram'
 
-  // Speaking полного mock: три части, по записи на часть. Part 2 — минута подготовки по карточке.
-  // Все три записи уходят одной проверкой: AI оценивает Speaking целиком, как экзаменатор.
+  // Speaking полного mock как на экзамене (DECISIONS 2026-11-27): Part 1 — интервью по трём темам, Part 2 —
+  // карточка, минута подготовки и до 2 минут речи, Part 3 — обсуждение на тему карточки. Одна запись на часть:
+  // вопросы внутри части идут по кнопке «Следующий вопрос», секунда каждого уходит AI вместе с записью.
+  // Все три записи — одной проверкой: AI оценивает Speaking целиком, как экзаменатор.
   let { r }: { r: { id: number } } = $props()
 
-  let questions = $state<{ part: number; text: string }[] | null>(null)
+  const PREP = 60_000
+  const PART2_MAX = 120_000
+
+  type Part = { part: number; items: SpeakingItem[] }
+
+  let parts = $state<Part[] | null>(null)
   let ends = $state(0)
-  let i = $state(0)
+  let p = $state(0) // часть
+  let k = $state(0) // вопрос в части
+  let phase = $state<'intro' | 'prep' | 'rec'>('intro')
   let takes = $state<Recording[]>([])
+  let marks = $state<number[][]>([])
   let rec: Recorder | null = null
-  let recording = $state(false)
+  let starting = false // микрофон включается: таймер подготовки не должен начать вторую запись
   let since = $state(0)
   let prepUntil = $state(0)
+  let notes = $state('')
+  let thanks = $state(false)
   let error = $state<Key | ''>('')
   let sending = $state(false)
   let now = $state(Date.now())
@@ -29,46 +41,96 @@
   onMount(async () => {
     try {
       const res = await api.mockSpeakingStart(r.id)
-      questions = res.questions
+      // Вопросы подряд одной части — одна запись.
+      const out: Part[] = []
+      for (const q of res.questions) {
+        const last = out[out.length - 1]
+        if (last && last.part === q.part) last.items.push(q)
+        else out.push({ part: q.part, items: [q] })
+      }
+      parts = out
       ends = new Date(res.ends_at).getTime()
     } catch {
       error = 'app.error'
     }
   })
 
-  const tick = setInterval(() => (now = Date.now()), 500)
+  const tick = setInterval(() => {
+    now = Date.now()
+    // Part 2: минута подготовки кончилась — запись начинается сама; на 2:00 — «Thank you», как у экзаменатора.
+    if (phase === 'prep' && now >= prepUntil) record()
+    if (phase === 'rec' && cur?.part === 2 && now - since >= PART2_MAX) finishPart(true)
+  }, 250)
   onDestroy(() => {
     clearInterval(tick)
     rec?.cancel()
   })
 
-  async function startRec() {
+  const cur = $derived(parts?.[p])
+  const done = $derived(!!parts && takes.length === parts.length && takes.every(Boolean))
+
+  function begin() {
+    if (!cur) return
     error = ''
+    thanks = false
+    if (cur.part === 2) {
+      phase = 'prep'
+      prepUntil = Date.now() + PREP
+      return
+    }
+    record()
+  }
+
+  async function record() {
+    if (rec || starting) return
+    starting = true
     try {
       rec = await startRecording()
-      recording = true
+      phase = 'rec'
       since = Date.now()
+      k = 0
+      marks[p] = [0]
       haptic.select()
     } catch {
+      phase = 'intro'
       error = 'speaking.noMic'
+    } finally {
+      starting = false
     }
   }
 
-  async function stopRec() {
+  function nextQuestion() {
+    if (!cur || k + 1 >= cur.items.length) return
+    k += 1
+    marks[p] = [...(marks[p] ?? []), Math.round((Date.now() - since) / 1000)]
+    haptic.select()
+  }
+
+  async function finishPart(timeUp = false) {
     if (!rec) return
-    const take = await rec.stop()
+    const r0 = rec
     rec = null
-    recording = false
-    takes[i] = take
+    takes[p] = await r0.stop()
+    thanks = timeUp
     haptic.success()
-    if (questions && i + 1 < questions.length) {
-      i += 1
-      prepUntil = questions[i]!.part === 2 ? Date.now() + 60_000 : 0
+    phase = 'intro'
+    if (parts && p + 1 < parts.length) {
+      p += 1
+      k = 0
     }
+  }
+
+  function again() {
+    takes = []
+    marks = []
+    notes = ''
+    p = 0
+    k = 0
+    phase = 'intro'
   }
 
   async function send() {
-    if (!questions) return
+    if (!parts) return
     sending = true
     error = ''
     try {
@@ -77,6 +139,7 @@
         takes.map((x) => x.blob),
         takes.reduce((s, x) => s + x.seconds, 0),
         violations,
+        marks,
       )
       haptic.success()
       back()
@@ -91,58 +154,86 @@
   // Нарушения камеры: запись не обрывается, но с трёх Speaking не идёт в рейтинг (сервер).
   let violations = $state(0)
 
-  const q = $derived(questions?.[i])
-  const done = $derived(!!questions && takes.length === questions.length && takes.every(Boolean))
+  const titles: Record<number, Key> = { 1: 'speaking.p1.title', 2: 'speaking.p2.title', 3: 'speaking.p3.title' }
+  const leads: Record<number, Key> = { 1: 'speaking.p1.lead', 2: 'speaking.p2.lead', 3: 'speaking.p3.lead' }
+  const q = $derived(cur?.items[k])
 </script>
 
 <BackBar onback={back} />
 
 {#if !canRecord()}
   <p class="card">{t('speaking.noMic')}</p>
-{:else if error === 'app.error' && !questions}
+{:else if error === 'app.error' && !parts}
   <p class="error">{t('app.error')}</p>
-{:else if !questions || !q}
+{:else if !parts || !cur || !q}
   <Skeleton rows={3} />
 {:else}
   <h1>Speaking · {t('mock.title')}</h1>
   <div class="card bar">
     <span class="num">{clock(ends - now)}</span>
-    <span class="hint">Part {q.part} · {i + 1}/{questions.length}</span>
+    <span class="hint">Part {cur.part} · {p + 1}/{parts.length}</span>
   </div>
   <!-- Камера в Speaking предупреждает без звука: запись ответа не обрывается и сигнал в неё не попадает
        (DECISIONS 2026-11-24); нарушения считаются и уходят на сервер (DECISIONS 2026-11-25). -->
   {#if !done}<Proctor sound={false} onviolation={() => (violations += 1)} />{/if}
   {#if violations > 0}<p class="hint warn" role="status">{t('mock.warn', { n: violations })}</p>{/if}
+  {#if thanks}<p class="card hint" role="status">{t('speaking.thanks')}</p>{/if}
 
   {#if done}
     <section class="card stack">
       <p>{t('mock.speakingReady')}</p>
       <button class="btn" disabled={sending} onclick={send}>{t('speaking.send')}</button>
-      <button class="btn btn-plain" disabled={sending} onclick={() => ((takes = []), (i = 0))}>{t('speaking.again')}</button>
+      <button class="btn btn-plain" disabled={sending} onclick={again}>{t('speaking.redo')}</button>
     </section>
-  {:else}
+  {:else if phase === 'intro'}
+    <section class="card stack">
+      <h2>{t(titles[cur.part] ?? 'speaking.p1.title')}</h2>
+      <p class="hint">{t(leads[cur.part] ?? 'speaking.p1.lead')}</p>
+      <button class="btn" onclick={begin}>{t(cur.part === 2 ? 'speaking.showCard' : 'speaking.begin')}</button>
+    </section>
+  {:else if cur.part === 2}
     <section class="card question">
-      <p class="hint">{t(q.part === 2 ? 'speaking.part2' : 'speaking.part13')}</p>
-      {#each q.text.split('\n') as line, k (k)}<p class="q">{line}</p>{/each}
+      {#each q.text.split('\n') as line, i (i)}<p class:q={i === 0}>{line}</p>{/each}
     </section>
-
+    <textarea class="notes" bind:value={notes} rows="4" placeholder={t('speaking.notes')}></textarea>
     <div class="mic">
-      {#if prepUntil > now && !recording}
+      {#if phase === 'prep'}
         <p class="num">{clock(prepUntil - now)}</p>
         <p class="hint">{t('speaking.prep')}</p>
+        <button class="btn" onclick={record}>{t('speaking.speakNow')}</button>
+      {:else}
+        <span class="dot" aria-hidden="true"></span>
+        <p class="num">{clock(now - since)} / 2:00</p>
+        <button class="btn" onclick={() => finishPart()}>{t('speaking.endPart')}</button>
       {/if}
-      <button class="rec" class:on={recording} onclick={recording ? stopRec : startRec}>{recording ? '■' : '●'}</button>
-      <p class="num">{recording ? clock(now - since) : '0:00'}</p>
-      <p class="hint">{recording ? t('speaking.stop') : t('speaking.start')}</p>
+    </div>
+  {:else}
+    <section class="card question">
+      {#if cur.part === 1 && q.topic}<p class="hint">{t('speaking.topic', { t: q.topic })}</p>{/if}
+      <p class="hint">{t('speaking.qOf', { n: k + 1, total: cur.items.length })}</p>
+      <p class="q">{q.text}</p>
+    </section>
+    <div class="mic">
+      <span class="dot" aria-hidden="true"></span>
+      <p class="num">{clock(now - since)}</p>
+      {#if k + 1 < cur.items.length}
+        <button class="btn" onclick={nextQuestion}>{t('speaking.nextQ')}</button>
+      {:else}
+        <button class="btn" onclick={() => finishPart()}>{t('speaking.endPart')}</button>
+      {/if}
     </div>
   {/if}
   {#if error && error !== 'app.error'}<p class="error">{t(error)}</p>{/if}
-  {#if error === 'app.error' && questions}<p class="error">{t('app.error')}</p>{/if}
+  {#if error === 'app.error' && parts}<p class="error">{t('app.error')}</p>{/if}
 {/if}
 
 <style>
   h1 {
     font-size: 24px;
+  }
+
+  h2 {
+    font-size: 18px;
   }
 
   .bar {
@@ -164,42 +255,46 @@
   .q {
     font-size: 18px;
     line-height: 1.45;
+    font-weight: 500;
+  }
+
+  .notes {
+    width: 100%;
+    min-width: 0;
   }
 
   .mic {
     display: grid;
     justify-items: center;
-    gap: 6px;
-    padding: 24px 0;
+    gap: 8px;
+    padding: 16px 0;
   }
 
-  .rec {
-    width: 84px;
-    height: 84px;
+  .mic .btn {
+    width: 100%;
+  }
+
+  .mic .num {
+    font-size: 20px;
+  }
+
+  .dot {
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
-    background: var(--accent);
-    color: var(--accent-text);
-    font-size: 28px;
-  }
-
-  .rec.on {
     background: var(--danger);
     animation: pulse 1.4s ease-in-out infinite;
   }
 
   @keyframes pulse {
     50% {
-      box-shadow: 0 0 0 14px color-mix(in srgb, var(--danger) 18%, transparent);
+      box-shadow: 0 0 0 10px color-mix(in srgb, var(--danger) 18%, transparent);
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .rec.on {
+    .dot {
       animation: none;
     }
-  }
-
-  .mic .num {
-    font-size: 20px;
   }
 </style>

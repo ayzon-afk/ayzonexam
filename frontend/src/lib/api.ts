@@ -104,6 +104,9 @@ export type Result = {
   level?: LevelResult // тест уровня, который подстраивается (DECISIONS 2026-11-27)
 }
 
+// Вопрос Speaking mock: topic — тема Part 1 или карточка, к которой относится Part 3 (DECISIONS 2026-11-27).
+export type SpeakingItem = { part: number; topic?: string; text: string }
+
 // Тест уровня: сервер выдаёт по одному вопросу (item), после 12 — текст Reading (passage).
 export type LevelState = {
   id: number
@@ -382,12 +385,14 @@ export const api = {
   mockWritingStart: (id: number) => post<{ ends_at: string; task1: MockPrompt | null; task2: MockPrompt }>(`/api/mock/${id}/writing/start`),
   mockWriting: (id: number, task1: string, task2: string, violations: number) =>
     post<MockView>(`/api/mock/${id}/writing`, { task1, task2, violations }),
-  mockSpeakingStart: (id: number) => post<{ ends_at: string; questions: { part: number; text: string }[] }>(`/api/mock/${id}/speaking/start`),
-  mockSpeaking: (id: number, audio: Blob[], seconds: number, violations: number) => {
+  mockSpeakingStart: (id: number) => post<{ ends_at: string; questions: SpeakingItem[] }>(`/api/mock/${id}/speaking/start`),
+  // marks[часть][вопрос] — секунда записи, когда вопрос появился на экране.
+  mockSpeaking: (id: number, audio: Blob[], seconds: number, violations: number, marks: number[][]) => {
     const f = new FormData()
     audio.forEach((a, i) => f.append(`audio${i}`, a, `part${i + 1}`))
     f.append('seconds', String(Math.round(seconds)))
     f.append('violations', String(violations))
+    f.append('marks', JSON.stringify(marks))
     return post<MockView>(`/api/mock/${id}/speaking`, f)
   },
 

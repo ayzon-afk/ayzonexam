@@ -158,17 +158,6 @@ func (s *Store) StartWriting(ctx context.Context, m Mock, now time.Time) (Mock, 
 		WHERE id = $1 AND writing_started_at IS NULL RETURNING `+mockCols, m.ID, now))
 }
 
-// StartSpeaking — таймер Speaking пошёл; вопросы (по одному на часть) закрепляются за mock.
-func (s *Store) StartSpeaking(ctx context.Context, m Mock, now time.Time) (Mock, error) {
-	if m.SpeakingStartedAt != nil {
-		return m, nil
-	}
-	return scanMock(s.pool.QueryRow(ctx, `UPDATE mocks SET speaking_started_at = $2, speaking_questions = (
-			SELECT jsonb_agg(jsonb_build_object('part', part, 'text', text) ORDER BY part) FROM (
-				SELECT DISTINCT ON (part) part, text FROM speaking_questions WHERE active ORDER BY part, random()) q)
-		WHERE id = $1 RETURNING `+mockCols, m.ID, now))
-}
-
 // WritingBand — балл части Writing из баллов заданий: Task 2 весит вдвое больше Task 1, как на экзамене;
 // без Task 1 — балл Task 2. Округление до 0.5 — как Overall.
 func WritingBand(task1 *float64, task2 float64) float64 {

@@ -246,9 +246,10 @@
   // Вопросы Speaking.
   let qpart = $state(1)
   let qtext = $state('')
+  let qtopic = $state('')
   async function addQuestion() {
     try {
-      await adm.post('questions', { part: Number(qpart), text: qtext, active: true })
+      await adm.post('questions', { part: Number(qpart), topic: qtopic, text: qtext, active: true })
       qtext = ''
       await load()
     } catch {
@@ -256,7 +257,7 @@
     }
   }
   async function toggleQuestion(q: Row) {
-    await adm.put(`questions/${q.id}`, { part: q.part, text: q.text, active: !q.active })
+    await adm.put(`questions/${q.id}`, { part: q.part, topic: q.topic ?? '', text: q.text, active: !q.active })
     await load()
   }
 
@@ -353,13 +354,15 @@
 {:else}
   <section class="card stack">
     <select bind:value={qpart}><option value={1}>Part 1</option><option value={2}>Part 2 — карточка</option><option value={3}>Part 3</option></select>
+    <input bind:value={qtopic} placeholder="Тема (Hometown, book…)" />
+    <p class="hint">В mock: Part 1 — три темы по 3–4 вопроса, первая — Work or studies, Hometown или Your home; карточка Part 2 и до 5 вопросов Part 3 с той же темой, что у карточки. Вопросы без темы — только для практики.</p>
     <textarea bind:value={qtext} rows="3" placeholder="Вопрос. Для карточки Part 2 — тема, с новой строки «You should say: …»"></textarea>
     <button class="btn" disabled={!qtext.trim()} onclick={addQuestion}>Добавить вопрос</button>
   </section>
   <ul class="card rows">
     {#each questions as q (q.id)}
       <li class="row">
-        <span class="grow"><span class="tag">Part {q.part}</span>{q.text}</span>
+        <span class="grow"><span class="tag">Part {q.part}{q.topic ? ` · ${q.topic}` : ''}</span>{q.text}</span>
         <button class="btn btn-small btn-plain" onclick={() => toggleQuestion(q)}>{q.active ? 'Скрыть' : 'Показать'}</button>
       </li>
     {/each}

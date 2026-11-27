@@ -820,20 +820,22 @@ func (s *server) adminPromptSave(w http.ResponseWriter, r *http.Request, a users
 }
 
 func (s *server) adminQuestions(w http.ResponseWriter, r *http.Request, _ users.User) {
-	s.listJSON(w, r, "questions", `SELECT id, part, text, active FROM speaking_questions ORDER BY part, id`)
+	s.listJSON(w, r, "questions", `SELECT id, part, topic, text, active FROM speaking_questions ORDER BY part, topic, pos, id`)
 }
 
 func (s *server) adminQuestionSave(w http.ResponseWriter, r *http.Request, a users.User) {
 	var b struct {
-		Part   int    `json:"part"`
+		Part int `json:"part"`
+		// Topic — тема Part 1 или карточка Part 2, к которой относятся вопросы Part 3 (DECISIONS 2026-11-27).
+		Topic  string `json:"topic"`
 		Text   string `json:"text"`
 		Active bool   `json:"active"`
 	}
 	if !readJSON(w, r, &b, 4<<10) {
 		return
 	}
-	b.Text = strings.TrimSpace(b.Text)
-	if b.Part < 1 || b.Part > 3 || b.Text == "" || utf8.RuneCountInString(b.Text) > 1000 {
+	b.Text, b.Topic = strings.TrimSpace(b.Text), strings.TrimSpace(b.Topic)
+	if b.Part < 1 || b.Part > 3 || b.Text == "" || utf8.RuneCountInString(b.Text) > 1000 || utf8.RuneCountInString(b.Topic) > 60 {
 		writeError(w, http.StatusBadRequest, "bad_question")
 		return
 	}
@@ -841,14 +843,18 @@ func (s *server) adminQuestionSave(w http.ResponseWriter, r *http.Request, a use
 	var id int64
 	var err error
 	if r.PathValue("id") == "" {
-		err = s.DB.QueryRow(ctx, `INSERT INTO speaking_questions (part, text, active) VALUES ($1, $2, $3) RETURNING id`, b.Part, b.Text, b.Active).Scan(&id)
+		// pos — в конец темы: вопросы темы задаются по порядку добавления.
+		err = s.DB.QueryRow(ctx, `INSERT INTO speaking_questions (part, topic, text, active, pos)
+			VALUES ($1, $2, $3, $4, (SELECT coalesce(max(pos), 0) + 1 FROM speaking_questions WHERE part = $1 AND topic = $2))
+			RETURNING id`, b.Part, b.Topic, b.Text, b.Active).Scan(&id)
 		s.audit(ctx, a.TelegramID, "question.create", "", nil)
 	} else {
 		var ok bool
 		if id, ok = pathID(w, r); !ok {
 			return
 		}
-		_, err = s.DB.Exec(ctx, `UPDATE speaking_questions SET part = $2, text = $3, active = $4 WHERE id = $1`, id, b.Part, b.Text, b.Active)
+		_, err = s.DB.Exec(ctx, `UPDATE speaking_questions SET part = $2, topic = $3, text = $4, active = $5 WHERE id = $1`,
+			id, b.Part, b.Topic, b.Text, b.Active)
 		s.audit(ctx, a.TelegramID, "question.update", "question:"+strconv.FormatInt(id, 10), map[string]any{"active": b.Active})
 	}
 	if err != nil {

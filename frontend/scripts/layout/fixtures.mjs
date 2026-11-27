@@ -110,7 +110,7 @@ const speakingCheck = {
   id: 301,
   mock_id: null,
   source: 'app',
-  questions: [{ part: 1, text: 'Do you work or are you a student?' }, { part: 2, text: 'Describe a place in your city that you like to visit. You should say where it is, when you go there and explain why you like it.' }],
+  questions: [{ part: 1, text: 'Do you work or are you a student?' }, { part: 2, text: 'Describe a place in your city that you like to visit. You should say where it is, when you go there and explain why you like it.' }, { part: 3, text: '1. (0:00) Why are parks and public spaces important in cities?\n2. (0:41) What makes a city a good place to live?\n3. (1:25) Should old buildings be protected or replaced with modern ones, even when the city badly needs new housing?' }],
   seconds: 184,
   status: 'done',
   band: 6.5,

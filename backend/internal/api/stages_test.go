@@ -18,6 +18,7 @@ import (
 
 	"ayzonexam/internal/ai"
 	"ayzonexam/internal/bot"
+	"ayzonexam/internal/exam"
 	"ayzonexam/internal/speaking"
 	"ayzonexam/internal/tgauth"
 	"ayzonexam/internal/writing"
@@ -359,12 +360,35 @@ func TestMockFlow(t *testing.T) {
 	}
 	sp := do(t, h, "POST", fmt.Sprintf("/api/mock/%d/speaking/start", id), auth, "")
 	qs, _ := sp.body["questions"].([]any)
-	if sp.code != 200 || len(qs) != 3 {
-		t.Fatalf("Speaking mock: %d %s", sp.code, sp.raw)
+	// Как на экзамене (DECISIONS 2026-11-27): Part 1 — 11 вопросов по трём темам, первая — вступительная;
+	// карточка Part 2; Part 3 — 5 вопросов на тему карточки.
+	count := map[float64]int{}
+	var card string
+	for i, x := range qs {
+		q := x.(map[string]any)
+		count[q["part"].(float64)]++
+		if q["part"] == 2.0 {
+			card = q["topic"].(string)
+		}
+		if q["part"] == 3.0 && q["topic"] != card {
+			t.Fatalf("Part 3 не по теме карточки %q: %s", card, sp.raw)
+		}
+		if i == 0 && !exam.IntroTopics[q["topic"].(string)] {
+			t.Fatalf("Part 1 начинается не со вступительной темы: %s", sp.raw)
+		}
+	}
+	if sp.code != 200 || count[1] != 11 || count[2] != 1 || count[3] != 5 {
+		t.Fatalf("Speaking mock: %d %v %s", sp.code, count, sp.raw)
 	}
 	files := []file{{"audio0", webm}, {"audio1", webm}, {"audio2", webm}}
-	if r := form(t, h, fmt.Sprintf("/api/mock/%d/speaking", id), auth, map[string]string{"seconds": "300"}, files...); r.code != 200 {
+	marks := `[[0,20,41,60,80,100,121,140,160,180,200],[0],[0,40,85,130,170]]`
+	if r := form(t, h, fmt.Sprintf("/api/mock/%d/speaking", id), auth, map[string]string{"seconds": "700", "marks": marks}, files...); r.code != 200 {
 		t.Fatalf("записи Speaking: %d %s", r.code, r.raw)
+	}
+	var sent string
+	pool.QueryRow(t.Context(), `SELECT questions::text FROM speaking_checks WHERE mock_id = $1`, id).Scan(&sent)
+	if !strings.Contains(sent, "11. (3:20)") || !strings.Contains(sent, "Topic: ") || !strings.Contains(sent, `"part": 3`) {
+		t.Fatalf("вопросы для AI: %s", sent)
 	}
 	for {
 		did, err := sq.Step(t.Context())
