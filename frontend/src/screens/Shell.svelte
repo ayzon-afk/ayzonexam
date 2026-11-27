@@ -30,6 +30,7 @@
     practice: () => import('./exam/Practice.svelte'),
     test: () => import('./exam/Test.svelte'),
     attempt: () => import('./exam/Attempt.svelte'),
+    level: () => import('./exam/Level.svelte'),
     speaking: () => import('./speaking/Speaking.svelte'),
     speakingCheck: () => import('./speaking/Result.svelte'),
     mock: () => import('./mock/Mock.svelte'),

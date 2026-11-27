@@ -21,6 +21,7 @@ import (
 	"ayzonexam/internal/ai"
 	"ayzonexam/internal/billing"
 	"ayzonexam/internal/exam"
+	"ayzonexam/internal/level"
 	"ayzonexam/internal/news"
 	"ayzonexam/internal/rating"
 	"ayzonexam/internal/social"
@@ -69,6 +70,7 @@ type server struct {
 	news     *news.Store
 	support  *support.Store
 	speaking *speaking.Store
+	level    *level.Store
 	leads    leadLimiter
 }
 
@@ -96,7 +98,8 @@ func New(d Deps) *Server {
 		d.Log = slog.Default()
 	}
 	s := &server{Deps: d, exam: exam.NewStore(d.DB), rating: rating.NewStore(d.DB), billing: billing.NewStore(d.DB),
-		social: social.NewStore(d.DB), news: news.NewStore(d.DB), support: support.NewStore(d.DB), speaking: speaking.NewStore(d.DB)}
+		social: social.NewStore(d.DB), news: news.NewStore(d.DB), support: support.NewStore(d.DB), speaking: speaking.NewStore(d.DB),
+		level: level.NewStore(d.DB)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
@@ -129,6 +132,9 @@ func New(d Deps) *Server {
 	a("POST /api/tests/{id}/start", s.startTest)
 	a("POST /api/attempts/{id}/submit", s.submitAttempt)
 	a("GET /api/attempts/{id}", s.getAttempt)
+	a("POST /api/level", s.startLevel)
+	a("POST /api/level/{id}/answer", s.answerLevel)
+	a("POST /api/level/{id}/finish", s.finishLevel)
 	mux.HandleFunc("GET /media/{id}", s.media)
 
 	a("GET /api/rating", s.getRating)

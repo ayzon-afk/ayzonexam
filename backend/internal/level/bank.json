@@ -1,0 +1,130 @@
+{
+ "core": [
+  {"id": "c01", "type": "grammar", "d": 3.0, "q": "There ___ two banks in our street.", "options": ["is", "are", "be", "am"], "answer": 1},
+  {"id": "c02", "type": "grammar", "d": 3.0, "q": "I usually ___ to work by bus.", "options": ["go", "goes", "going", "gone"], "answer": 0},
+  {"id": "c03", "type": "grammar", "d": 3.0, "q": "My brother is ___ than me.", "options": ["tall", "taller", "tallest", "more tall"], "answer": 1},
+  {"id": "c04", "type": "vocab", "d": 3.0, "q": "Opposite meaning: “cheap”", "options": ["expensive", "easy", "quiet", "empty"], "answer": 0},
+  {"id": "c05", "type": "grammar", "d": 3.0, "q": "How ___ money do you need?", "options": ["many", "much", "lot", "few"], "answer": 1},
+  {"id": "c06", "type": "grammar", "d": 3.0, "q": "Yesterday it ___ all day.", "options": ["rains", "is raining", "rained", "has rained"], "answer": 2},
+  {"id": "c07", "type": "grammar", "d": 3.5, "q": "We didn't ___ the film last night.", "options": ["watch", "watched", "watching", "watches"], "answer": 0},
+  {"id": "c08", "type": "grammar", "d": 3.5, "q": "She has lived here ___ three years.", "options": ["since", "for", "during", "from"], "answer": 1},
+  {"id": "c09", "type": "vocab", "d": 3.5, "q": "Can you ___ me the time, please?", "options": ["say", "tell", "speak", "talk"], "answer": 1},
+  {"id": "c10", "type": "grammar", "d": 3.5, "q": "He was tired, ___ he kept working.", "options": ["so", "because", "but", "or"], "answer": 2},
+  {"id": "c11", "type": "vocab", "d": 3.5, "q": "Closest meaning: “begin”", "options": ["start", "stop", "wait", "leave"], "answer": 0},
+  {"id": "c12", "type": "grammar", "d": 4.0, "q": "If it rains tomorrow, we ___ at home.", "options": ["staying", "will stay", "would stay", "stayed"], "answer": 1},
+  {"id": "c13", "type": "grammar", "d": 4.0, "q": "___ you ever been to Samarkand?", "options": ["Did", "Have", "Were", "Are"], "answer": 1},
+  {"id": "c14", "type": "vocab", "d": 4.0, "q": "Closest meaning: “purchase”", "options": ["buy", "sell", "borrow", "lend"], "answer": 0},
+  {"id": "c15", "type": "grammar", "d": 4.0, "q": "You ___ wear a uniform at our school — it's a rule.", "options": ["must", "might", "could", "would"], "answer": 0},
+  {"id": "c16", "type": "vocab", "d": 4.0, "q": "Closest meaning: “reduce”", "options": ["make smaller", "make stronger", "repeat", "return"], "answer": 0},
+  {"id": "c17", "type": "grammar", "d": 4.5, "q": "The museum ___ in 1890.", "options": ["built", "was built", "has built", "is building"], "answer": 1},
+  {"id": "c18", "type": "grammar", "d": 4.5, "q": "She ___ in Tashkent since 2020.", "options": ["lives", "has lived", "is living", "lived"], "answer": 1},
+  {"id": "c19", "type": "grammar", "d": 4.5, "q": "While I ___ dinner, the phone rang.", "options": ["cooked", "was cooking", "have cooked", "cook"], "answer": 1},
+  {"id": "c20", "type": "vocab", "d": 4.5, "q": "Closest meaning: “essential”", "options": ["necessary", "expensive", "optional", "dangerous"], "answer": 0},
+  {"id": "c21", "type": "vocab", "d": 4.5, "q": "The ___ of the city has grown rapidly.", "options": ["populate", "popular", "population", "popularity"], "answer": 2},
+  {"id": "c22", "type": "vocab", "d": 4.5, "q": "Closest meaning: “approximately”", "options": ["exactly", "about", "never", "quickly"], "answer": 1},
+  {"id": "c23", "type": "grammar", "d": 5.0, "q": "If I ___ more time, I would travel more.", "options": ["have", "had", "will have", "am having"], "answer": 1},
+  {"id": "c24", "type": "grammar", "d": 5.0, "q": "She asked me where ___.", "options": ["I lived", "did I live", "do I live", "I do live"], "answer": 0},
+  {"id": "c25", "type": "grammar", "d": 5.0, "q": "This is the man ___ car was stolen.", "options": ["who", "which", "whose", "whom"], "answer": 2},
+  {"id": "c26", "type": "grammar", "d": 5.0, "q": "I'm looking forward ___ you.", "options": ["see", "to see", "to seeing", "seeing"], "answer": 2},
+  {"id": "c27", "type": "vocab", "d": 5.0, "q": "We've run ___ of milk.", "options": ["out", "off", "away", "over"], "answer": 0},
+  {"id": "c28", "type": "vocab", "d": 5.0, "q": "Closest meaning: “significant”", "options": ["important", "small", "quick", "strange"], "answer": 0},
+  {"id": "c29", "type": "grammar", "d": 5.5, "q": "He is used to ___ early.", "options": ["get up", "getting up", "got up", "gets up"], "answer": 1},
+  {"id": "c30", "type": "grammar", "d": 5.5, "q": "By the time we arrived, the film ___.", "options": ["started", "has started", "had started", "starts"], "answer": 2},
+  {"id": "c31", "type": "grammar", "d": 5.5, "q": "The number of tourists ___ steadily since 2015.", "options": ["rises", "has risen", "rose", "is rising"], "answer": 1},
+  {"id": "c32", "type": "grammar", "d": 5.5, "q": "Despite ___ hard, he failed the exam.", "options": ["study", "studied", "studying", "to study"], "answer": 2},
+  {"id": "c33", "type": "vocab", "d": 5.5, "q": "Closest meaning: “decline”", "options": ["decrease", "choose", "explain", "arrive"], "answer": 0},
+  {"id": "c34", "type": "vocab", "d": 5.5, "q": "The new policy had a considerable ___ on unemployment.", "options": ["affect", "effect", "effort", "efficiency"], "answer": 1},
+  {"id": "c35", "type": "vocab", "d": 5.5, "q": "The government should ___ measures to reduce pollution.", "options": ["do", "make", "take", "put"], "answer": 2},
+  {"id": "c36", "type": "grammar", "d": 6.0, "q": "Neither the teacher nor the students ___ ready.", "options": ["was", "were", "is", "be"], "answer": 1},
+  {"id": "c37", "type": "grammar", "d": 6.0, "q": "I wish I ___ harder at school.", "options": ["studied", "had studied", "study", "would study"], "answer": 1},
+  {"id": "c38", "type": "grammar", "d": 6.0, "q": "He denied ___ the window.", "options": ["to break", "breaking", "break", "broke"], "answer": 1},
+  {"id": "c39", "type": "vocab", "d": 6.0, "q": "Closest meaning: “reluctant”", "options": ["eager", "unwilling", "careful", "famous"], "answer": 1},
+  {"id": "c40", "type": "vocab", "d": 6.0, "q": "The graph shows a sharp ___ in sales in March.", "options": ["rise", "raise", "arise", "rose"], "answer": 0},
+  {"id": "c41", "type": "vocab", "d": 6.0, "q": "The meeting was ___ off because of the storm.", "options": ["called", "gone", "set", "taken"], "answer": 0},
+  {"id": "c42", "type": "vocab", "d": 6.0, "q": "Closest meaning: “contribute to”", "options": ["help cause", "prevent", "measure", "ignore"], "answer": 0},
+  {"id": "c43", "type": "grammar", "d": 6.5, "q": "Had I known about the traffic, I ___ earlier.", "options": ["would leave", "would have left", "had left", "will leave"], "answer": 1},
+  {"id": "c44", "type": "grammar", "d": 6.5, "q": "The report, ___ was published last week, caused a debate.", "options": ["that", "which", "what", "who"], "answer": 1},
+  {"id": "c45", "type": "vocab", "d": 6.5, "q": "Closest meaning: “inevitable”", "options": ["unavoidable", "unexpected", "invisible", "unlikely"], "answer": 0},
+  {"id": "c46", "type": "vocab", "d": 6.5, "q": "Closest meaning: “adequate”", "options": ["sufficient", "excellent", "accurate", "available"], "answer": 0},
+  {"id": "c47", "type": "vocab", "d": 6.5, "q": "Many young people are ___ to social media.", "options": ["addicted", "interested", "involved", "keen"], "answer": 0},
+  {"id": "c48", "type": "grammar", "d": 7.0, "q": "Hardly ___ the station when the train left.", "options": ["I had reached", "had I reached", "I reached", "did I reached"], "answer": 1},
+  {"id": "c49", "type": "grammar", "d": 7.0, "q": "It is high time the government ___ action.", "options": ["takes", "took", "will take", "has taken"], "answer": 1},
+  {"id": "c50", "type": "grammar", "d": 7.0, "q": "I'd rather you ___ smoke in here.", "options": ["don't", "didn't", "won't", "not"], "answer": 1},
+  {"id": "c51", "type": "grammar", "d": 7.0, "q": "Not only ___ late, but he also forgot his notes.", "options": ["he was", "was he", "he is", "did he"], "answer": 1},
+  {"id": "c52", "type": "vocab", "d": 7.0, "q": "Closest meaning: “mitigate”", "options": ["make worse", "reduce the effect of", "describe", "postpone"], "answer": 1},
+  {"id": "c53", "type": "vocab", "d": 7.0, "q": "Closest meaning: “detrimental”", "options": ["harmful", "helpful", "temporary", "obvious"], "answer": 0},
+  {"id": "c54", "type": "vocab", "d": 7.0, "q": "The findings are consistent ___ earlier research.", "options": ["to", "with", "by", "for"], "answer": 1},
+  {"id": "c55", "type": "grammar", "d": 7.5, "q": "___ the weather been better, the match would have gone ahead.", "options": ["If", "Had", "Were", "Should"], "answer": 1},
+  {"id": "c56", "type": "grammar", "d": 7.5, "q": "Little ___ that the decision would cost him his job.", "options": ["he knew", "did he know", "he did know", "knew he"], "answer": 1},
+  {"id": "c57", "type": "vocab", "d": 7.5, "q": "Closest meaning: “ubiquitous”", "options": ["rare", "found everywhere", "expensive", "ancient"], "answer": 1},
+  {"id": "c58", "type": "vocab", "d": 7.5, "q": "The proposal was rejected on the ___ that it was too expensive.", "options": ["grounds", "reasons", "causes", "motives"], "answer": 0},
+  {"id": "c59", "type": "vocab", "d": 7.5, "q": "Closest meaning: “scrutinise”", "options": ["examine closely", "approve", "ignore", "publish"], "answer": 0},
+  {"id": "c60", "type": "vocab", "d": 7.5, "q": "Closest meaning: “tentative”", "options": ["not certain", "very strong", "final", "careless"], "answer": 0},
+  {"id": "c61", "type": "grammar", "d": 8.0, "q": "Such ___ the demand that tickets sold out in an hour.", "options": ["is", "was", "were", "had"], "answer": 1},
+  {"id": "c62", "type": "grammar", "d": 8.0, "q": "She would sooner resign ___ accept the new terms.", "options": ["rather", "than", "that", "as"], "answer": 1},
+  {"id": "c63", "type": "vocab", "d": 8.0, "q": "Closest meaning: “exacerbate”", "options": ["make worse", "explain", "reduce", "hide"], "answer": 0},
+  {"id": "c64", "type": "vocab", "d": 8.0, "q": "Closest meaning: “propensity”", "options": ["tendency", "ownership", "proposal", "payment"], "answer": 0},
+  {"id": "c65", "type": "vocab", "d": 8.5, "q": "Closest meaning: “ostensibly”", "options": ["apparently", "secretly", "certainly", "rarely"], "answer": 0},
+  {"id": "c66", "type": "vocab", "d": 8.5, "q": "Closest meaning: “recalcitrant”", "options": ["uncooperative", "recently arrived", "generous", "forgetful"], "answer": 0},
+  {"id": "c67", "type": "vocab", "d": 8.5, "q": "His answer was deliberately ___, so nobody knew what he really meant.", "options": ["equivocal", "eloquent", "emphatic", "explicit"], "answer": 0},
+  {"id": "c68", "type": "vocab", "d": 8.5, "q": "Closest meaning: “cursory”", "options": ["quick and not thorough", "dangerous", "angry", "careful"], "answer": 0},
+  {"id": "c69", "type": "vocab", "d": 9.0, "q": "Closest meaning: “obviate”", "options": ["remove the need for", "make obvious", "oppose", "delay"], "answer": 0}
+ ],
+ "passages": [
+  {
+   "id": "p40", "level": 4.0, "title": "Chorsu Bazaar",
+   "text": "Chorsu Bazaar is one of the oldest markets in Tashkent. It is in the old part of the city, under a large blue dome. Every day, thousands of people come here to buy fruit, vegetables, bread, spices and meat.\n\nThe market opens early in the morning, at about five o'clock, because many sellers bring fresh food from villages near the city. Prices are usually lower than in supermarkets, and buyers often ask for a discount.\n\nTourists like Chorsu too. They take photos of the colourful spices and try fresh bread called non. Some visitors say the best time to come is in the morning, when the market is not too crowded and the food is freshest.",
+   "questions": [
+    {"q": "Chorsu Bazaar is in the new part of Tashkent.", "options": ["True", "False", "Not Given"], "answer": 1, "d": 3.5},
+    {"q": "The market opens at about five in the morning.", "options": ["True", "False", "Not Given"], "answer": 0, "d": 3.5},
+    {"q": "Food at Chorsu is usually cheaper than in supermarkets.", "options": ["True", "False", "Not Given"], "answer": 0, "d": 4.0},
+    {"q": "Why does the market open early?", "options": ["Sellers bring fresh food from villages", "Tourists arrive early", "It is too hot later in the day"], "answer": 0, "d": 4.5},
+    {"q": "Chorsu is the biggest market in Uzbekistan.", "options": ["True", "False", "Not Given"], "answer": 2, "d": 5.0}
+   ]
+  },
+  {
+   "id": "p50", "level": 5.0, "title": "Learning languages with apps",
+   "text": "In the last ten years, millions of people have started learning languages on their phones. Language apps are popular because they are cheap or free, and learners can practise for a few minutes at any time — on the bus, in a queue or before going to sleep. Many apps turn learning into a game: users earn points, compete with friends and receive reminders if they forget to practise.\n\nHowever, teachers point out that apps have limits. Most of them focus on single words and short sentences, so learners get little practice in writing longer texts or having real conversations. A study at a university in Spain found that students who used an app for three months knew more words than before, but their speaking had hardly improved.\n\nFor this reason, many teachers suggest using apps together with lessons, not instead of them.",
+   "questions": [
+    {"q": "Language apps can be used at any time of day.", "options": ["True", "False", "Not Given"], "answer": 0, "d": 4.0},
+    {"q": "All language apps are free.", "options": ["True", "False", "Not Given"], "answer": 1, "d": 5.0},
+    {"q": "According to teachers, apps give learners a lot of practice in writing long texts.", "options": ["True", "False", "Not Given"], "answer": 1, "d": 5.0},
+    {"q": "What did the study in Spain find?", "options": ["The students' speaking improved a lot", "The students learned more words, but their speaking barely changed", "The students stopped using the app after three months"], "answer": 1, "d": 5.5},
+    {"q": "The students in the Spanish study used the app every day.", "options": ["True", "False", "Not Given"], "answer": 2, "d": 6.0}
+   ]
+  },
+  {
+   "id": "p60", "level": 6.0, "title": "Urban heat islands",
+   "text": "On a summer afternoon, the centre of a large city can be several degrees hotter than the countryside around it. Scientists call this the urban heat island effect. It occurs mainly because roads, roofs and pavements absorb the sun's energy during the day and release it slowly at night, so cities stay warm long after sunset. The lack of vegetation makes matters worse: trees and plants cool the air by releasing water through their leaves, and they also provide shade. Heat from cars, air conditioners and factories adds to the problem.\n\nThe consequences are more than a matter of comfort. Higher temperatures increase the demand for air conditioning, which raises electricity consumption and, in turn, produces more heat. During heatwaves, hospitals in hot cities report more cases of heat-related illness, particularly among elderly people.\n\nSeveral cities have started to fight back. Some paint roofs white so that they reflect sunlight, while others plant thousands of trees along their streets. Early results are encouraging, although experts warn that the benefits depend on how carefully such measures are planned.",
+   "questions": [
+    {"q": "Cities cool down quickly after the sun goes down.", "options": ["True", "False", "Not Given"], "answer": 1, "d": 5.5},
+    {"q": "Plants help to lower the temperature of the air.", "options": ["True", "False", "Not Given"], "answer": 0, "d": 5.5},
+    {"q": "Which group is mentioned as especially affected by heatwaves?", "options": ["children", "elderly people", "factory workers"], "answer": 1, "d": 6.0},
+    {"q": "Using air conditioners can make the heat island effect stronger.", "options": ["True", "False", "Not Given"], "answer": 0, "d": 6.5},
+    {"q": "Painting roofs white costs less than planting trees.", "options": ["True", "False", "Not Given"], "answer": 2, "d": 7.0}
+   ]
+  },
+  {
+   "id": "p70", "level": 7.0, "title": "The value of boredom",
+   "text": "For most of history, boredom has been regarded as something to be avoided — a sign of a dull mind or an empty life. Recently, however, psychologists have begun to take a more nuanced view. In one widely cited experiment, participants were first asked to complete a deliberately tedious task, such as copying numbers from a telephone directory, and were then asked to think of as many uses as possible for a pair of plastic cups. Those who had endured the boring task produced more ideas, and more original ones, than a control group who had gone straight to the creative exercise.\n\nThe researchers' explanation is that boredom prompts the mind to wander, and that daydreaming allows connections to form between ideas that would not normally be linked. Critics caution against over-interpreting such findings: the studies have mostly involved small groups of university students, and it is not clear whether the effect lasts beyond a few minutes.\n\nNonetheless, some educators argue that the constant stimulation provided by smartphones may be depriving young people of the mental idleness from which creativity often springs.",
+   "questions": [
+    {"q": "Psychologists have always considered boredom to be useful.", "options": ["True", "False", "Not Given"], "answer": 1, "d": 6.5},
+    {"q": "In the experiment, the group that did the boring task first gave more original answers.", "options": ["True", "False", "Not Given"], "answer": 0, "d": 7.0},
+    {"q": "The researchers believe daydreaming helps people link ideas that are usually unconnected.", "options": ["True", "False", "Not Given"], "answer": 0, "d": 7.0},
+    {"q": "What concern do critics raise?", "options": ["The tasks were too difficult for the participants", "The evidence comes from limited groups, and the effect may be short-lived", "The control group was larger than the other group"], "answer": 1, "d": 7.5},
+    {"q": "Participants in the experiment were paid for taking part.", "options": ["True", "False", "Not Given"], "answer": 2, "d": 7.5}
+   ]
+  },
+  {
+   "id": "p80", "level": 8.0, "title": "Language death",
+   "text": "Of the roughly seven thousand languages spoken today, linguists estimate that as many as half may cease to be spoken by the end of this century. Language death is seldom abrupt. More often, it proceeds through a gradual shift in which a community comes to use a more dominant language in an ever-widening range of situations — first at work and in school, eventually in the home — until parents no longer pass the ancestral tongue on to their children. At that point the language may linger among elderly speakers for decades, but its fate is effectively sealed.\n\nThe loss is not merely symbolic. Each language encodes distinctive ways of categorising experience, and many contain detailed knowledge of local plants, animals and ecosystems that has never been recorded elsewhere. Yet attempts at revitalisation have had mixed results. Hebrew is frequently cited as a success, having been revived as an everyday spoken language after centuries of use confined largely to religious and scholarly contexts; such cases, however, depended on exceptional political and social circumstances that are rarely replicated.\n\nWhere revival efforts rely chiefly on school lessons, students may acquire a passive understanding without ever adopting the language for daily communication — an outcome that some linguists regard as preservation rather than revival.",
+   "questions": [
+    {"q": "Most languages disappear suddenly.", "options": ["True", "False", "Not Given"], "answer": 1, "d": 7.5},
+    {"q": "A language is likely to die once parents stop passing it on to their children.", "options": ["True", "False", "Not Given"], "answer": 0, "d": 8.0},
+    {"q": "Some languages hold knowledge about nature that has not been written down in any other form.", "options": ["True", "False", "Not Given"], "answer": 0, "d": 8.0},
+    {"q": "Why is Hebrew described as an unusual case?", "options": ["It was never used in religious contexts", "Its revival depended on rare political and social conditions", "It was revived mainly through school lessons"], "answer": 1, "d": 8.5},
+    {"q": "What does the writer suggest about revival programmes based on school lessons?", "options": ["They usually produce fluent everyday speakers", "They may keep a language understood but not truly in use", "They are more successful than political campaigns"], "answer": 1, "d": 8.5}
+   ]
+  }
+ ]
+}

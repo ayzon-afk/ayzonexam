@@ -25,6 +25,7 @@ export type Route =
   | { s: 'practice'; part: Part }
   | { s: 'test'; from: TestSource }
   | { s: 'attempt'; id: number }
+  | { s: 'level' }
   | { s: 'speaking' }
   | { s: 'speakingCheck'; id: number }
   | { s: 'mock' }

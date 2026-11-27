@@ -101,6 +101,26 @@ export type Result = {
   finished_at: string
   test: TestView
   mock_id: number | null
+  level?: LevelResult // тест уровня, который подстраивается (DECISIONS 2026-11-27)
+}
+
+// Тест уровня: сервер выдаёт по одному вопросу (item), после 12 — текст Reading (passage).
+export type LevelState = {
+  id: number
+  step: number
+  steps: number
+  item: { id: string; q: string; options: string[] } | null
+  passage: { title: string; text: string; questions: Question[] } | null
+}
+export type LevelMistake = { q: string; options: string[]; answer: number; given: number }
+export type LevelResult = {
+  low: number
+  high: number
+  cefr: string
+  core: { correct: number; total: number }
+  reading: { correct: number; total: number }
+  passage: string
+  mistakes: LevelMistake[]
 }
 
 // Рейтинг, центры, турнир (этап 8).
@@ -336,6 +356,9 @@ export const api = {
   // В строгом mock ответ без балла и ключа: { id, mock_id, hidden: true }.
   submit: (attempt: number, answers: Answer[], leaves: number) => post<Result | { id: number; mock_id: number; hidden: true }>(`/api/attempts/${attempt}/submit`, { answers, leaves }),
   attempt: (id: number) => get<Result>(`/api/attempts/${id}`),
+  levelStart: () => post<LevelState>('/api/level'),
+  levelAnswer: (id: number, item: string, answer: number) => post<LevelState>(`/api/level/${id}/answer`, { item, answer }),
+  levelFinish: (id: number, answers: number[]) => post<{ id: number }>(`/api/level/${id}/finish`, { answers }),
 
   rating: (scope: Scope) => get<Board>(`/api/rating?scope=${scope}`),
   centerRating: () => get<{ centers: CenterRow[]; mine: number | null }>('/api/rating/centers'),

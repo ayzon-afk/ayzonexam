@@ -113,7 +113,7 @@
     <strong>{t('mock.title')}</strong>
     <span class="tag">{t('quick.mock')}</span>
   </button>
-  <button class="card tile" onclick={() => go({ s: 'practice', part: 'level' })}>
+  <button class="card tile" onclick={() => go({ s: 'level' })}>
     <span class="ico"><Icon name="target" /></span>
     <strong>{t('level.title')}</strong>
     <span class="tag">{t('quick.level')}</span>

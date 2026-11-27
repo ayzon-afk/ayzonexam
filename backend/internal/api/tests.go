@@ -63,20 +63,21 @@ func toTestView(t exam.Test) testView {
 
 // resultView — сданная попытка: ответы ученика, ключ и (для Listening) сценарий.
 type resultView struct {
-	ID         int64         `json:"id"`
-	Kind       string        `json:"kind"`
-	Title      string        `json:"title"`
-	Correct    int           `json:"correct"`
-	Total      int           `json:"total"`
-	Band       float64       `json:"band"`
-	Ranked     bool          `json:"ranked"`
-	Answers    []exam.Answer `json:"answers"`
-	Key        []any         `json:"key"` // по вопросу: номер варианта, верные буквы (multi) или допустимые ответы (text)
-	Marks      []bool        `json:"marks"`
-	Transcript string        `json:"transcript,omitempty"`
-	FinishedAt time.Time     `json:"finished_at"`
-	Test       testView      `json:"test"`
-	MockID     *int64        `json:"mock_id"`
+	ID         int64            `json:"id"`
+	Kind       string           `json:"kind"`
+	Title      string           `json:"title"`
+	Correct    int              `json:"correct"`
+	Total      int              `json:"total"`
+	Band       float64          `json:"band"`
+	Ranked     bool             `json:"ranked"`
+	Answers    []exam.Answer    `json:"answers"`
+	Key        []any            `json:"key"` // по вопросу: номер варианта, верные буквы (multi) или допустимые ответы (text)
+	Marks      []bool           `json:"marks"`
+	Transcript string           `json:"transcript,omitempty"`
+	FinishedAt time.Time        `json:"finished_at"`
+	Test       testView         `json:"test"`
+	MockID     *int64           `json:"mock_id"`
+	Level      *levelResultView `json:"level,omitempty"` // тест уровня: диапазон, CEFR, ошибки
 }
 
 func toResult(a exam.Attempt, t exam.Test) resultView {
@@ -209,7 +210,14 @@ func (s *server) getAttempt(w http.ResponseWriter, r *http.Request, u users.User
 		writeError(w, http.StatusNotFound, "not_found")
 		return
 	}
-	writeJSON(w, http.StatusOK, toResult(a, t))
+	v := toResult(a, t)
+	if a.Kind == exam.Level {
+		if err := s.addLevel(r, u, a, &v); err != nil {
+			s.fail(w, r, err)
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, v)
 }
 
 // hiddenPart — попытка — часть строгого mock, который ещё идёт: как на экзамене, балл и ключ — в отчёте.

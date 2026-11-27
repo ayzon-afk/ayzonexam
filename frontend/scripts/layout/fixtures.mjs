@@ -225,6 +225,31 @@ const channelResult = {
   marks: [true, true, false, true, false, true, false, true], finished_at: '2026-11-26T10:00:00Z', test: channelTest, mock_id: null,
 }
 
+// Тест уровня (DECISIONS 2026-11-27): вопрос, после ответа — текст Reading, итог — попытка 900.
+const levelItem = { id: 17, step: 3, steps: 17, item: { id: 'c43', q: 'Had I known about the traffic, I ___ earlier.', options: ['would leave', 'would have left', 'had left', 'will leave'] }, passage: null }
+const levelText = {
+  id: 17, step: 13, steps: 17, item: null,
+  passage: {
+    title: 'Urban heat islands',
+    text: 'On a summer afternoon, the centre of a large city can be several degrees hotter than the countryside around it. '.repeat(4) + '\n\n' + 'Several cities have started to fight back with white roofs and thousands of trees. '.repeat(3),
+    questions: [
+      { q: 'Cities cool down quickly after the sun goes down.', options: ['True', 'False', 'Not Given'] },
+      { q: 'Which group is mentioned as especially affected by heatwaves?', options: ['children', 'elderly people', 'factory workers'] },
+    ],
+  },
+}
+const levelResult = {
+  ...channelResult, id: 900, kind: 'level', title: 'Level test', band: 6, correct: 11, total: 17, answers: [], key: [], marks: [],
+  test: { id: 1, kind: 'level', title: 'Level test', minutes: 15, questions: [] },
+  level: {
+    low: 5.5, high: 6.5, cefr: 'B2', core: { correct: 8, total: 12 }, reading: { correct: 3, total: 5 }, passage: 'Urban heat islands — a longer title to wrap on narrow screens',
+    mistakes: [
+      { q: 'Neither the teacher nor the students ___ ready.', options: ['was', 'were', 'is', 'be'], answer: 1, given: 0 },
+      { q: 'Using air conditioners can make the heat island effect stronger.', options: ['True', 'False', 'Not Given'], answer: 0, given: -1 },
+    ],
+  },
+}
+
 export const routes = {
   'GET /api/info': { bot: 'humostartup_bot' },
   'GET /api/me': (p) => me(p),
@@ -242,7 +267,10 @@ export const routes = {
     test: url.pathname.includes('/tests/2/') ? readingTest : channelTest,
   }),
   'POST /api/attempts/:id/submit': channelResult,
-  'GET /api/attempts/:id': channelResult,
+  'GET /api/attempts/:id': (_, url) => (url.pathname.endsWith('/900') ? levelResult : channelResult),
+  'POST /api/level': levelItem,
+  'POST /api/level/:id/answer': levelText,
+  'POST /api/level/:id/finish': { id: 900 },
   'GET /api/rating': board,
   'GET /api/rating/centers': { centers: Array.from({ length: 8 }, (_, i) => centerRow(i)), mine: 2 },
   'GET /api/centers': { centers: Array.from({ length: 6 }, (_, i) => ({ ...centerRow(i), about: 'IELTS и General English', avg: null, place: null, top: null })) },

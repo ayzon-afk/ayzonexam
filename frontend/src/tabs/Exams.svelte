@@ -42,7 +42,7 @@
 
 <h1>{t('tab.exams')}</h1>
 
-<button class="card level" onclick={() => go({ s: 'practice', part: 'level' })}>
+<button class="card level" onclick={() => go({ s: 'level' })}>
   <span class="ico"><Icon name="target" /></span>
   <span class="grow">
     <strong>{t('level.title')}</strong>

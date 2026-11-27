@@ -105,7 +105,7 @@
   // Конец онбординга: третий экран предлагает тест уровня — он открывается поверх главной.
   function onboarded(next: Me, levelTest: boolean) {
     update(next)
-    if (levelTest) go({ s: 'practice', part: 'level' })
+    if (levelTest) go({ s: 'level' })
   }
 
   onMount(() => {

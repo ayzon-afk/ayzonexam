@@ -31,12 +31,27 @@
   <Skeleton rows={3} />
 {:else}
   <Head title={res.kind === 'level' ? t('level.title') : res.title} sub={res.kind === 'level' ? '' : res.kind === 'reading' ? 'Reading' : 'Listening'} demo={false} />
-  <section class="card result">
-    <p class="hint">{res.kind === 'level' ? t('level.result') : t('result.band')}</p>
-    <p class="num band">{formatBand(res.band)}</p>
-    <p>{t('practice.score', { n: res.correct, total: res.total })}</p>
-    <p class="hint">{res.kind === 'level' ? t('level.after') : res.ranked ? t('test.ranked') : t('test.unranked')}</p>
-  </section>
+  {#if res.level}
+    {@const lv = res.level}
+    <!-- Тест уровня, который подстраивается: балл, диапазон «скорее всего», CEFR и части (DECISIONS 2026-11-27). -->
+    <section class="card result">
+      <p class="hint">{t('level.result')}</p>
+      <p class="num band">{formatBand(res.band)}</p>
+      <p>{t('level.range', { low: formatBand(lv.low), high: formatBand(lv.high) })} · <b>{lv.cefr}</b></p>
+      <p class="hint">{t('level.measured')}</p>
+    </section>
+    <ul class="card parts">
+      <li><span class="grow">{t('level.core')}</span><span class="num">{lv.core.correct}/{lv.core.total}</span></li>
+      <li><span class="grow">Reading · {lv.passage}</span><span class="num">{lv.reading.correct}/{lv.reading.total}</span></li>
+    </ul>
+  {:else}
+    <section class="card result">
+      <p class="hint">{res.kind === 'level' ? t('level.result') : t('result.band')}</p>
+      <p class="num band">{formatBand(res.band)}</p>
+      <p>{t('practice.score', { n: res.correct, total: res.total })}</p>
+      <p class="hint">{res.kind === 'level' ? t('level.after') : res.ranked ? t('test.ranked') : t('test.unranked')}</p>
+    </section>
+  {/if}
 
   {#if res.mock_id}
     <button class="btn" onclick={back}>{t('mock.back')}</button>
@@ -48,9 +63,24 @@
     <button class="btn" onclick={back}>{t('practice.done')}</button>
   {/if}
 
-  <button class="btn btn-plain" onclick={() => (showKey = !showKey)}>{showKey ? t('test.hideKey') : t('test.showKey')}</button>
+  {#if res.level}
+    {#if res.level.mistakes.length}
+      <button class="btn btn-plain" onclick={() => (showKey = !showKey)}>{showKey ? t('level.hideMistakes') : t('level.showMistakes', { n: res.level.mistakes.length })}</button>
+    {/if}
+    {#if showKey}
+      {#each res.level.mistakes as m, i (i)}
+        <section class="card mistake">
+          <p><b>{m.q}</b></p>
+          <p class="wrong">{m.given >= 0 ? t('level.yours', { a: m.options[m.given] ?? '' }) : t('level.noAnswer')}</p>
+          <p class="right">{t('level.correct', { a: m.options[m.answer] ?? '' })}</p>
+        </section>
+      {/each}
+    {/if}
+  {:else}
+    <button class="btn btn-plain" onclick={() => (showKey = !showKey)}>{showKey ? t('test.hideKey') : t('test.showKey')}</button>
+  {/if}
 
-  {#if showKey}
+  {#if showKey && !res.level}
     {#if res.transcript}
       <section class="card stack">
         <h2>{t('test.transcript')}</h2>
@@ -83,5 +113,37 @@
 
   .hist {
     padding: 0 16px;
+  }
+
+  .parts {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 12px 16px;
+    list-style: none;
+  }
+
+  .parts li {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+  }
+
+  .parts .grow {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .mistake {
+    display: grid;
+    gap: 4px;
+  }
+
+  .wrong {
+    color: var(--danger);
+  }
+
+  .right {
+    color: var(--ok);
   }
 </style>
