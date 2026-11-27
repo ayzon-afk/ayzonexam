@@ -56,6 +56,7 @@ export type CheckSummary = {
 export type Mistake = { quote: string; fix: string; why: string; criterion: string }
 
 export type Check = CheckSummary & {
+  chart?: Chart // Task 1 из банка
   essay: string
   source: 'text' | 'photo'
   criteria: Record<Criterion, number> | null
@@ -187,7 +188,19 @@ export type MockView = {
 }
 export type MockSummary = { id: number; status: string; overall: number | null; started_at: string; finished_at: string | null }
 export type MockQuota = { premium: boolean; used: number; limit: number; credits: number }
-export type MockPrompt = { id: number; text: string; image?: string }
+export type MockPrompt = { id: number; text: string; image?: string; chart?: Chart }
+// График задания Task 1 данными (DECISIONS 2026-11-27): приложение рисует его само (components/Chart.svelte).
+export type Chart = {
+  type: 'line' | 'bar' | 'pie' | 'table' | 'process'
+  title: string
+  unit?: string
+  x?: string[]
+  series?: { name: string; values: number[] }[]
+  pies?: { name: string; parts: { name: string; value: number }[] }[]
+  columns?: string[]
+  rows?: string[][]
+  steps?: string[]
+}
 
 // Друзья и дуэли (этап 9).
 export type Friend = { id: number; nickname: string; avatar: string; band: number | null }

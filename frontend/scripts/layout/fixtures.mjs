@@ -250,6 +250,15 @@ const levelResult = {
   },
 }
 
+// Task 1 с графиком данными (DECISIONS 2026-11-27): разбор проверки 102–106 — все пять видов.
+const charts = {
+  102: { type: 'line', title: 'Average monthly temperature in Tashkent and London', unit: '°C', x: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], series: [{ name: 'Tashkent', values: [2, 4, 10, 16, 21, 27, 29, 27, 21, 14, 8, 3] }, { name: 'London', values: [5, 5, 7, 10, 13, 16, 18, 18, 15, 12, 8, 5] }] },
+  103: { type: 'bar', title: 'Employment by sector and gender, 2023', unit: '% of employed men / women', x: ['Agriculture', 'Manufacturing', 'Construction', 'Trade', 'Education', 'Health'], series: [{ name: 'Men', values: [24, 18, 17, 15, 6, 4] }, { name: 'Women', values: [21, 12, 2, 19, 18, 14] }] },
+  104: { type: 'pie', title: 'Household spending', unit: '%', pies: [{ name: '2000', parts: [{ name: 'Food', value: 42 }, { name: 'Housing', value: 20 }, { name: 'Transport', value: 10 }, { name: 'Education', value: 8 }, { name: 'Leisure', value: 6 }, { name: 'Other', value: 14 }] }, { name: '2020', parts: [{ name: 'Food', value: 29 }, { name: 'Housing', value: 24 }, { name: 'Transport', value: 14 }, { name: 'Education', value: 12 }, { name: 'Leisure', value: 11 }, { name: 'Other', value: 10 }] }] },
+  105: { type: 'table', title: 'Public transport in four cities', columns: ['City', 'Metro lines', 'Daily passengers (millions)', 'Average fare (USD)', 'Opened'], rows: [['London', '11', '4.0', '3.80', '1863'], ['Moscow', '15', '6.5', '0.70', '1935'], ['Tashkent', '4', '0.5', '0.15', '1977'], ['Dubai', '2', '0.6', '1.20', '2009']] },
+  106: { type: 'process', title: 'How bricks are made', steps: ['Clay is dug from the ground by a large digger', 'The clay is placed on a metal grid and broken into small pieces', 'Sand and water are added and the mixture is shaped in moulds or cut by a wire cutter', 'The bricks are heated in a kiln at 200–1300 °C', 'The finished bricks are packaged and delivered to building sites'] },
+}
+
 export const routes = {
   'GET /api/info': { bot: 'humostartup_bot' },
   'GET /api/me': (p) => me(p),
@@ -259,7 +268,10 @@ export const routes = {
   'GET /api/history': { items: checks.map((c, i) => ({ kind: ['writing', 'reading', 'listening', 'mock'][i], id: c.id, title: c.prompt, band: c.band, status: c.status === 'done' ? 'done' : 'pending', ranked: i % 2 === 0, tournament: i === 2, mock: i === 3, at: c.created_at })) },
   'GET /api/writing/checks': { used: 2, limit: 3, period: 'day', bonus: 1, checks },
   'GET /api/writing/prompts': { prompts: [{ id: 1, task: 'task2', text: checks[0].prompt }, { id: 2, task: 'task2', text: 'Some people think that children should start school at a very early age. To what extent do you agree?' }] },
-  'GET /api/writing/checks/:id': check,
+  'GET /api/writing/checks/:id': (_, url) => {
+    const id = Number(url.pathname.split('/').pop())
+    return charts[id] ? { ...check, id, task: 'task1', prompt: 'The graph below shows ' + charts[id].title.toLowerCase() + '. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.', chart: charts[id] } : check
+  },
   'GET /api/tests': (_, url) => ({ tests: Array.from({ length: 6 }, (_, i) => ({ id: i + 1, kind: url.searchParams.get('kind') ?? 'reading', title: `Cambridge IELTS 18 · Academic Test ${i + 1} · Passage ${i + 1}`, minutes: 20, count: 13, full_size: i === 0, last_band: i < 3 ? 6.5 + i * 0.5 : null })) }),
   'POST /api/tests/:id/start': (_, url) => ({
     attempt_id: 88,

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import TaskChart from '../../components/TaskChart.svelte'
   import { onDestroy, onMount } from 'svelte'
   import BackBar from '../../components/BackBar.svelte'
   import Proctor from '../../components/Proctor.svelte'
@@ -144,7 +145,7 @@
       <section class="pane prompt">
         <h2>Task {task1 ? task : 2}</h2>
         <p>{prompt.text}</p>
-        {#if prompt.image}<img src={prompt.image} alt="" />{/if}
+        {#if prompt.chart}<TaskChart chart={prompt.chart} />{:else if prompt.image}<img src={prompt.image} alt="" />{/if}
         <p class="hint">{t('mock.writingTime')}</p>
       </section>
       <section class="pane answer">

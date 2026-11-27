@@ -323,6 +323,10 @@ func (g *Gemini) GradeWriting(ctx context.Context, req WritingRequest) (WritingR
 	task := "Task 2 (essay)"
 	if req.Task == "task1" {
 		task = "Academic Task 1 (report on a visual). The task with the visual is in the attached image."
+		if req.Image == nil {
+			// Тема из банка: график — данными в тексте задания (writing.Chart), ученик видел его нарисованным.
+			task = "Academic Task 1 (report on a visual). The candidate saw the visual drawn on screen; its exact data is given at the end of the prompt."
+		}
 	}
 	prompt := strings.TrimSpace(req.Prompt)
 	if prompt == "" {

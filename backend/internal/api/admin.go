@@ -21,6 +21,7 @@ import (
 	"ayzonexam/internal/rating"
 	"ayzonexam/internal/support"
 	"ayzonexam/internal/users"
+	"ayzonexam/internal/writing"
 )
 
 // Админка владельца (этап 17). Вход — только Telegram id из ADMIN_IDS; каждое изменение — в журнал.
@@ -766,10 +767,10 @@ func (s *server) adminTestSpeak(w http.ResponseWriter, r *http.Request, a users.
 }
 
 func (s *server) adminPrompts(w http.ResponseWriter, r *http.Request, _ users.User) {
-	s.listJSON(w, r, "prompts", `SELECT id, task, text, image_id, active FROM writing_prompts ORDER BY task, id`)
+	s.listJSON(w, r, "prompts", `SELECT id, task, text, image_id, chart IS NOT NULL AS has_chart, active FROM writing_prompts ORDER BY task, id`)
 }
 
-// adminPromptSave — тема Writing; Task 1 — с картинкой графика (для mock).
+// adminPromptSave — тема Writing; Task 1 — с картинкой графика или с графиком данными (chart, writing.Chart) — для mock.
 func (s *server) adminPromptSave(w http.ResponseWriter, r *http.Request, a users.User) {
 	if code := parseForm(w, r, maxImageBytes+64<<10); code != "" {
 		writeError(w, http.StatusBadRequest, code)
@@ -781,6 +782,16 @@ func (s *server) adminPromptSave(w http.ResponseWriter, r *http.Request, a users
 	if (task != "task1" && task != "task2") || utf8.RuneCountInString(text) > maxPromptRunes || (task == "task2" && utf8.RuneCountInString(text) < minOwnPromptRunes) {
 		writeError(w, http.StatusBadRequest, "bad_prompt")
 		return
+	}
+	// График данными: пусто — не менять; неверный — ошибка с причиной.
+	var chart []byte
+	if raw := strings.TrimSpace(first(f["chart"])); raw != "" {
+		c, err := writing.ParseChart([]byte(raw))
+		if err != nil || task != "task1" {
+			writeError(w, http.StatusBadRequest, "bad_chart")
+			return
+		}
+		chart, _ = json.Marshal(c)
 	}
 	ctx := r.Context()
 	var imageID *int64
@@ -800,16 +811,16 @@ func (s *server) adminPromptSave(w http.ResponseWriter, r *http.Request, a users
 	var id int64
 	var err error
 	if r.PathValue("id") == "" {
-		err = s.DB.QueryRow(ctx, `INSERT INTO writing_prompts (task, text, image_id, active) VALUES ($1, $2, $3, $4) RETURNING id`,
-			task, text, imageID, active).Scan(&id)
+		err = s.DB.QueryRow(ctx, `INSERT INTO writing_prompts (task, text, image_id, active, chart) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+			task, text, imageID, active, chart).Scan(&id)
 		s.audit(ctx, a.TelegramID, "prompt.create", "", map[string]any{"task": task})
 	} else {
 		var ok bool
 		if id, ok = pathID(w, r); !ok {
 			return
 		}
-		_, err = s.DB.Exec(ctx, `UPDATE writing_prompts SET task = $2, text = $3, image_id = coalesce($4, image_id), active = $5 WHERE id = $1`,
-			id, task, text, imageID, active)
+		_, err = s.DB.Exec(ctx, `UPDATE writing_prompts SET task = $2, text = $3, image_id = coalesce($4, image_id), active = $5,
+			chart = coalesce($6, chart) WHERE id = $1`, id, task, text, imageID, active, chart)
 		s.audit(ctx, a.TelegramID, "prompt.update", "prompt:"+strconv.FormatInt(id, 10), map[string]any{"active": active})
 	}
 	if err != nil {

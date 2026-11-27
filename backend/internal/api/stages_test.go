@@ -342,11 +342,33 @@ func TestMockFlow(t *testing.T) {
 	if ws.code != 200 || ws.body["task2"] == nil {
 		t.Fatalf("Writing mock: %d %s", ws.code, ws.raw)
 	}
-	if r := do(t, h, "POST", fmt.Sprintf("/api/mock/%d/writing", id), auth, `{"task2":"short"}`); r.code != 400 || r.body["error"] != "too_short" {
-		t.Fatalf("короткий ответ: %s", r.raw)
+	// Task 1 из банка — с графиком данными (DECISIONS 2026-11-27): все темы банка проходят проверку графика.
+	task1, _ := ws.body["task1"].(map[string]any)
+	if task1 == nil || task1["chart"] == nil {
+		t.Fatalf("Task 1 mock без графика: %s", ws.raw)
 	}
-	if r := do(t, h, "POST", fmt.Sprintf("/api/mock/%d/writing", id), auth, jsonOf(t, map[string]string{"task2": words(260)})); r.code != 200 {
+	rows, _ := pool.Query(t.Context(), `SELECT id, chart FROM writing_prompts WHERE chart IS NOT NULL`)
+	charts := 0
+	for rows.Next() {
+		var pid int64
+		var raw []byte
+		rows.Scan(&pid, &raw)
+		if _, err := writing.ParseChart(raw); err != nil {
+			t.Errorf("тема %d: %v", pid, err)
+		}
+		charts++
+	}
+	rows.Close()
+	if charts < 18 {
+		t.Fatalf("тем с графиком %d", charts)
+	}
+	if r := do(t, h, "POST", fmt.Sprintf("/api/mock/%d/writing", id), auth, jsonOf(t, map[string]string{"task1": words(170), "task2": words(260)})); r.code != 200 {
 		t.Fatalf("Writing отправлен: %d %s", r.code, r.raw)
+	}
+	var cid int64
+	pool.QueryRow(t.Context(), `SELECT id FROM writing_checks WHERE mock_id = $1 AND task = 'task1' AND chart IS NOT NULL`, id).Scan(&cid)
+	if c := do(t, h, "GET", fmt.Sprintf("/api/writing/checks/%d", cid), auth, ""); cid == 0 || c.body["chart"] == nil {
+		t.Fatalf("проверка Task 1 без графика: %d %s", cid, c.raw)
 	}
 	wq, sq := queues(h)
 	for {
@@ -797,9 +819,18 @@ func TestMockViolations(t *testing.T) {
 	// Здесь — только нарушения; порядок частей строгого mock проверяет TestStrictMock.
 	pool.Exec(t.Context(), `UPDATE mocks SET strict = false WHERE id = $1`, id)
 	do(t, h, "POST", fmt.Sprintf("/api/mock/%d/writing/start", id), auth, "")
-	body := jsonOf(t, map[string]any{"task2": words(260), "violations": 3})
+	// Task 1 не написан, Task 2 — 15 слов: сдача по таймеру не отклоняется, как на экзамене — пусто 0, до 20 слов
+	// Band 1, без AI (DECISIONS 2026-11-27).
+	body := jsonOf(t, map[string]any{"task2": words(15), "violations": 3})
 	if r := do(t, h, "POST", fmt.Sprintf("/api/mock/%d/writing", id), auth, body); r.code != 200 {
 		t.Fatalf("Writing с нарушениями: %d %s", r.code, r.raw)
+	}
+	var b1, b2 float64
+	var st1, st2 string
+	pool.QueryRow(t.Context(), `SELECT band::float8, status FROM writing_checks WHERE mock_id = $1 AND task = 'task1'`, id).Scan(&b1, &st1)
+	pool.QueryRow(t.Context(), `SELECT band::float8, status FROM writing_checks WHERE mock_id = $1 AND task = 'task2'`, id).Scan(&b2, &st2)
+	if b1 != 0 || b2 != 1 || st1 != "done" || st2 != "done" {
+		t.Fatalf("короткие ответы: Task 1 %v %s, Task 2 %v %s", b1, st1, b2, st2)
 	}
 	wq, sq := queues(h)
 	for did, _ := wq.Step(t.Context()); did; did, _ = wq.Step(t.Context()) {

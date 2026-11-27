@@ -75,8 +75,9 @@ func TestWritingPrompts(t *testing.T) {
 	if list, _ := r.body["prompts"].([]any); r.code != 200 || len(list) != 12 {
 		t.Fatalf("темы Task 2: %d %s", r.code, r.raw)
 	}
-	if r := do(t, h, "GET", "/api/writing/prompts?task=task1", initData(9101, ""), ""); r.code != 200 || r.raw != "{\"prompts\":[]}\n" {
-		t.Fatalf("темы Task 1 пока пустые, но массивом: %s", r.raw)
+	// Task 1 — 18 тем с графиком данными (миграция 0026).
+	if r := do(t, h, "GET", "/api/writing/prompts?task=task1", initData(9101, ""), ""); r.code != 200 || len(r.body["prompts"].([]any)) != 18 {
+		t.Fatalf("темы Task 1: %s", r.raw)
 	}
 	if r := do(t, h, "GET", "/api/writing/prompts?task=task3", initData(9101, ""), ""); r.code != 400 {
 		t.Fatalf("неизвестная задача: %d", r.code)

@@ -153,7 +153,7 @@ func (s *Store) StartWriting(ctx context.Context, m Mock, now time.Time) (Mock, 
 		return m, nil
 	}
 	return scanMock(s.pool.QueryRow(ctx, `UPDATE mocks SET writing_started_at = $2,
-			task1_prompt_id = (SELECT id FROM writing_prompts WHERE task = 'task1' AND active AND image_id IS NOT NULL ORDER BY random() LIMIT 1),
+			task1_prompt_id = (SELECT id FROM writing_prompts WHERE task = 'task1' AND active AND (image_id IS NOT NULL OR chart IS NOT NULL) ORDER BY random() LIMIT 1),
 			task2_prompt_id = (SELECT id FROM writing_prompts WHERE task = 'task2' AND active ORDER BY random() LIMIT 1)
 		WHERE id = $1 AND writing_started_at IS NULL RETURNING `+mockCols, m.ID, now))
 }

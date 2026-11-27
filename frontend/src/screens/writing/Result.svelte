@@ -135,6 +135,10 @@
   <details class="card">
     <summary>{t('result.task')}</summary>
     <p class="text">{check.prompt || t('result.chartTask')}</p>
+    <!-- Разбор — в первом экране (Shell): график грузится, только когда он есть. -->
+    {#if check.chart}
+      {#await import('../../components/TaskChart.svelte') then m}<m.default chart={check.chart} />{/await}
+    {/if}
   </details>
 
   {#if check.status === 'done'}<p class="hint center">{t('result.disclaimer')}</p>{/if}

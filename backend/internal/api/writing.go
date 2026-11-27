@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime/multipart"
@@ -257,6 +258,7 @@ type checkView struct {
 	Criteria   *criteriaView     `json:"criteria"`
 	Feedback   *writing.Feedback `json:"feedback"`
 	FinishedAt *time.Time        `json:"finished_at"`
+	Chart      json.RawMessage   `json:"chart,omitempty"` // график Task 1 из банка
 }
 
 func toSummary(c writing.Check) checkSummary {
@@ -301,7 +303,7 @@ func (s *server) getCheck(w http.ResponseWriter, r *http.Request, u users.User) 
 		s.fail(w, r, err)
 		return
 	}
-	v := checkView{checkSummary: toSummary(c), Essay: c.Essay, Source: c.Source, Feedback: c.Feedback, FinishedAt: c.FinishedAt}
+	v := checkView{checkSummary: toSummary(c), Essay: c.Essay, Source: c.Source, Feedback: c.Feedback, FinishedAt: c.FinishedAt, Chart: c.Chart}
 	v.Prompt = c.Prompt
 	if c.TA != nil && c.CC != nil && c.LR != nil && c.GRA != nil {
 		v.Criteria = &criteriaView{*c.TA, *c.CC, *c.LR, *c.GRA}

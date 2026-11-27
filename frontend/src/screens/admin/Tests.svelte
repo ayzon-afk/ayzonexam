@@ -219,19 +219,28 @@
   let ptask = $state('task2')
   let ptext = $state('')
   let pimage: Blob | null = null
+  // График Task 1 данными (DECISIONS 2026-11-27): приложение рисует его само, AI получает числа.
+  let pchart = $state('')
+  const chartSample = [
+    'График данными — приложение нарисует его само. Образец:',
+    '{"type":"line","title":"Internet access","unit":"%","x":["2000","2010","2020"],"series":[{"name":"Uzbekistan","values":[1,15,76]}]}',
+    'Виды: line и bar (x, series), pie (pies: name, parts: name, value), table (columns, rows), process (steps).',
+  ].join('\n')
   async function addPrompt() {
     const f = new FormData()
     f.append('task', ptask)
     f.append('text', ptext)
     if (pimage) f.append('image', pimage, 'chart.jpg')
+    if (ptask === 'task1' && pchart.trim()) f.append('chart', pchart)
     try {
       await request('POST', '/api/admin/prompts', f)
       ptext = ''
       pimage = null
+      pchart = ''
       note = 'Тема добавлена.'
       await load()
     } catch {
-      note = 'Не добавилось: Task 2 — от 20 знаков, картинка — JPG или PNG.'
+      note = 'Не добавилось: Task 2 — от 20 знаков, картинка — JPG или PNG, график — по образцу.'
     }
   }
   async function togglePrompt(p: Row) {
@@ -336,9 +345,11 @@
   {/if}
 {:else if view === 'prompts'}
   <section class="card stack">
-    <select bind:value={ptask}><option value="task2">Task 2 — эссе</option><option value="task1">Task 1 — график (с картинкой)</option></select>
+    <select bind:value={ptask}><option value="task2">Task 2 — эссе</option><option value="task1">Task 1 — график (данными или картинкой)</option></select>
     <textarea bind:value={ptext} rows="4" placeholder="Текст задания"></textarea>
     {#if ptask === 'task1'}
+      <textarea class="mono" bind:value={pchart} rows="6" placeholder={chartSample}></textarea>
+      <p class="hint">Или картинка (карта «было/стало» и всё, что не нарисовать данными):</p>
       <label class="btn btn-plain file">Картинка графика<input type="file" accept="image/*" onchange={async (e) => (pimage = await compressPhoto((e.target as HTMLInputElement).files![0]!))} /></label>
     {/if}
     <button class="btn" onclick={addPrompt}>Добавить тему</button>
@@ -346,7 +357,7 @@
   <ul class="card rows">
     {#each prompts as p (p.id)}
       <li class="row">
-        <span class="grow"><span class="tag">{p.task}{p.image_id ? ' · с графиком' : ''}</span>{p.text}</span>
+        <span class="grow"><span class="tag">{p.task}{p.has_chart ? ' · график данными' : p.image_id ? ' · с картинкой' : ''}</span>{p.text}</span>
         <button class="btn btn-small btn-plain" onclick={() => togglePrompt(p)}>{p.active ? 'Скрыть' : 'Показать'}</button>
       </li>
     {/each}

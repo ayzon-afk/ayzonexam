@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -12,6 +13,7 @@ import (
 
 	"ayzonexam/internal/ai"
 	"ayzonexam/internal/billing"
+	"ayzonexam/internal/bot"
 	"ayzonexam/internal/exam"
 	"ayzonexam/internal/users"
 	"ayzonexam/internal/writing"
@@ -426,6 +428,8 @@ type mockPrompt struct {
 	ID    int64  `json:"id"`
 	Text  string `json:"text"`
 	Image string `json:"image,omitempty"`
+	// Chart — график Task 1 данными (writing.Chart): приложение рисует его само.
+	Chart json.RawMessage `json:"chart,omitempty"`
 }
 
 // startMockWriting — таймер Writing; темы Task 1 (если есть в банке) и Task 2.
@@ -460,7 +464,7 @@ func (s *server) startMockWriting(w http.ResponseWriter, r *http.Request, u user
 		}
 		var p mockPrompt
 		var img *int64
-		if err := s.DB.QueryRow(ctx, `SELECT id, text, image_id FROM writing_prompts WHERE id = $1`, *id).Scan(&p.ID, &p.Text, &img); err != nil {
+		if err := s.DB.QueryRow(ctx, `SELECT id, text, image_id, chart FROM writing_prompts WHERE id = $1`, *id).Scan(&p.ID, &p.Text, &img, &p.Chart); err != nil {
 			s.fail(w, r, err)
 			return
 		}
@@ -471,6 +475,9 @@ func (s *server) startMockWriting(w http.ResponseWriter, r *http.Request, u user
 	}
 	writeJSON(w, http.StatusOK, out)
 }
+
+// minScoredWords — с этого числа слов ответ mock оценивает AI; меньше — Band 1 (критерии IELTS: «20 words or fewer»).
+const minScoredWords = 21
 
 // submitMockWriting — ответы Writing уходят в очередь проверки; лимит проверок не тратится.
 // Задание, проверка которого не удалась, можно отправить ещё раз.
@@ -524,12 +531,9 @@ func (s *server) submitMockWriting(w http.ResponseWriter, r *http.Request, u use
 		s.fail(w, r, err)
 		return
 	}
+	// Как на экзамене (DECISIONS 2026-11-27): короткий ответ не отклоняется — иначе сдача по таймеру с пустым
+	// Task 1 потеряла бы и Task 2. Пусто — 0, до 20 слов — Band 1 без AI; остальное оценивает AI.
 	for _, it := range items {
-		words := writing.CountWords(it.essay)
-		if words < writing.MinWords {
-			writeError(w, http.StatusBadRequest, "too_short")
-			return
-		}
 		if utf8.RuneCountInString(it.essay) > maxEssayRunes {
 			writeError(w, http.StatusBadRequest, "too_long")
 			return
@@ -538,13 +542,15 @@ func (s *server) submitMockWriting(w http.ResponseWriter, r *http.Request, u use
 	for _, it := range items {
 		var text string
 		var imgID *int64
-		if err := s.DB.QueryRow(ctx, `SELECT text, image_id FROM writing_prompts WHERE id = $1`, it.prompt).Scan(&text, &imgID); err != nil {
+		var chart []byte
+		if err := s.DB.QueryRow(ctx, `SELECT text, image_id, chart FROM writing_prompts WHERE id = $1`, it.prompt).Scan(&text, &imgID, &chart); err != nil {
 			s.fail(w, r, err)
 			return
 		}
 		c := writing.NewCheck{UserID: u.ID, Task: it.task, PromptID: &it.prompt, Prompt: text, Essay: it.essay,
-			Words: writing.CountWords(it.essay), Source: "text", Lang: u.Lang, MockID: &m.ID}
-		if imgID != nil {
+			Words: writing.CountWords(it.essay), Source: "text", Lang: u.Lang, MockID: &m.ID, Chart: chart}
+		// С графиком данными фото задания AI не нужно: числа он получит текстом.
+		if imgID != nil && chart == nil {
 			var img ai.Image
 			if err := s.DB.QueryRow(ctx, `SELECT mime, data FROM media WHERE id = $1`, *imgID).Scan(&img.MIME, &img.Data); err != nil {
 				s.fail(w, r, err)
@@ -552,10 +558,24 @@ func (s *server) submitMockWriting(w http.ResponseWriter, r *http.Request, u use
 			}
 			c.Image = &img
 		}
-		if _, err := s.Writing.Create(ctx, c, 0, s.Now(), s.Now()); err != nil {
+		var err error
+		switch {
+		case c.Words == 0:
+			_, err = s.Writing.CreateScored(ctx, c, 0, bot.T(u.Lang, "writing.blank"), s.Now())
+		case c.Words < minScoredWords:
+			_, err = s.Writing.CreateScored(ctx, c, 1, bot.T(u.Lang, "writing.under20"), s.Now())
+		default:
+			_, err = s.Writing.Create(ctx, c, 0, s.Now(), s.Now())
+		}
+		if err != nil {
 			s.fail(w, r, err)
 			return
 		}
+	}
+	// Задания с готовым баллом очередь не увидит: пересчитать mock сразу.
+	if err := s.mockPartDone(ctx, m.ID); err != nil {
+		s.fail(w, r, err)
+		return
 	}
 	v, err := s.mockView(ctx, u, m)
 	if err != nil {

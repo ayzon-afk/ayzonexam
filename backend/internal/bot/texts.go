@@ -123,6 +123,13 @@ var texts = map[string][3]string{ // uz, ru, en
 	"apply.rejected": {"Arizangiz hozircha ma’qullanmadi. Savollar bo‘lsa — /help.",
 		"Заявка пока не одобрена. Если есть вопросы — /help.",
 		"Your application wasn’t approved for now. Questions — /help."},
+	// Writing mock без ответа или до 20 слов: балл без AI, как в критериях IELTS (DECISIONS 2026-11-27).
+	"writing.blank": {"Bu topshiriqqa javob yozilmagan — imtihonda bunday javob 0 ball oladi.",
+		"На это задание ответа нет — на экзамене такой ответ получает 0.",
+		"There is no answer to this task — in the exam it would score 0."},
+	"writing.under20": {"Javob 20 so‘zdan kam — IELTS mezonlariga ko‘ra bunday javob Band 1 oladi.",
+		"В ответе меньше 20 слов — по критериям IELTS такой ответ получает Band 1.",
+		"The answer has fewer than 20 words — under the IELTS criteria it is rated Band 1."},
 	"pay.reason.notfound":   {"o‘tkazma topilmadi", "перевод не найден", "the transfer wasn't found"},
 	"pay.reason.amount":     {"summa mos emas", "сумма не совпадает", "the amount doesn't match"},
 	"pay.reason.screenshot": {"skrinshot to‘g‘ri kelmaydi", "скрин не подходит", "the screenshot isn't valid"},

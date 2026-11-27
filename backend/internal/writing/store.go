@@ -65,6 +65,7 @@ type Check struct {
 	CreatedAt  time.Time
 	FinishedAt *time.Time
 	MockID     *int64
+	Chart      json.RawMessage // график Task 1 из банка (writing.Chart); nil — нет
 }
 
 type NewCheck struct {
@@ -78,6 +79,7 @@ type NewCheck struct {
 	Lang     string
 	Image    *ai.Image // фото задания Task 1
 	MockID   *int64    // Writing полного mock: в лимит не идёт, он оплачен самим mock
+	Chart    []byte    // график Task 1 данными (Chart) — вместо фото
 }
 
 type Store struct {
@@ -87,6 +89,20 @@ type Store struct {
 
 func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{pool: pool, wake: make(chan struct{}, 1)}
+}
+
+// CreateScored — проверка с готовым баллом без AI: в mock пустой ответ (0) и ответ до 20 слов (Band 1) —
+// как в критериях IELTS; summary — пояснение ученику.
+func (s *Store) CreateScored(ctx context.Context, c NewCheck, band int, summary string, now time.Time) (int64, error) {
+	fb, _ := json.Marshal(Feedback{Summary: summary, Criteria: Comments{TA: summary, CC: summary, LR: summary, GRA: summary},
+		Mistakes: []ai.Mistake{}, NextBand: []string{}})
+	var id int64
+	err := s.pool.QueryRow(ctx, `INSERT INTO writing_checks
+		(user_id, task, prompt_id, prompt, essay, words, source, lang, run_after, created_at, mock_id, chart,
+		 status, band, ta, cc, lr, gra, feedback, finished_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10, $11, 'done', $12::int, $12::int, $12::int, $12::int, $12::int, $13, $9) RETURNING id`,
+		c.UserID, c.Task, c.PromptID, c.Prompt, c.Essay, c.Words, c.Source, c.Lang, now, c.MockID, c.Chart, band, fb).Scan(&id)
+	return id, err
 }
 
 // Prompts — активные темы банка.
@@ -139,9 +155,9 @@ func (s *Store) Create(ctx context.Context, c NewCheck, limit int, since, now ti
 	}
 	var id int64
 	if err := tx.QueryRow(ctx, `INSERT INTO writing_checks
-		(user_id, task, prompt_id, prompt, essay, words, source, lang, run_after, created_at, mock_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10) RETURNING id`,
-		c.UserID, c.Task, c.PromptID, c.Prompt, c.Essay, c.Words, c.Source, c.Lang, now, c.MockID).Scan(&id); err != nil {
+		(user_id, task, prompt_id, prompt, essay, words, source, lang, run_after, created_at, mock_id, chart)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10, $11) RETURNING id`,
+		c.UserID, c.Task, c.PromptID, c.Prompt, c.Essay, c.Words, c.Source, c.Lang, now, c.MockID, c.Chart).Scan(&id); err != nil {
 		return 0, err
 	}
 	if c.Image != nil {
@@ -181,15 +197,16 @@ func scanCheck(row pgx.Row, extra ...any) (Check, error) {
 func (s *Store) Get(ctx context.Context, userID, id int64) (Check, error) {
 	var essay string
 	var feedback []byte
-	c, err := scanCheck(s.pool.QueryRow(ctx, `SELECT `+checkCols+`, essay, feedback FROM writing_checks
-		WHERE id = $1 AND user_id = $2`, id, userID), &essay, &feedback)
+	var chart []byte
+	c, err := scanCheck(s.pool.QueryRow(ctx, `SELECT `+checkCols+`, essay, feedback, chart FROM writing_checks
+		WHERE id = $1 AND user_id = $2`, id, userID), &essay, &feedback, &chart)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return c, ErrNotFound
 	}
 	if err != nil {
 		return c, err
 	}
-	c.Essay = essay
+	c.Essay, c.Chart = essay, chart
 	if feedback != nil {
 		c.Feedback = &Feedback{}
 		if err := json.Unmarshal(feedback, c.Feedback); err != nil {

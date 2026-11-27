@@ -78,6 +78,7 @@ type job struct {
 	essay, lang    string
 	words          int
 	attempts       int
+	chart          []byte
 }
 
 // Step берёт одно задание и доводит его до результата, повтора или отказа. false — заданий нет.
@@ -92,8 +93,8 @@ func (q *Queue) Step(ctx context.Context) (bool, error) {
 			WHERE (status = 'queued' AND run_after <= $1) OR (status = 'processing' AND locked_until < $1)
 			ORDER BY run_after LIMIT 1
 			FOR UPDATE SKIP LOCKED)
-		RETURNING c.id, u.telegram_id, c.task, c.prompt, c.essay, c.lang, c.words, c.attempts`,
-		now, now.Add(lease)).Scan(&j.id, &j.telegramID, &j.task, &j.prompt, &j.essay, &j.lang, &j.words, &j.attempts)
+		RETURNING c.id, u.telegram_id, c.task, c.prompt, c.essay, c.lang, c.words, c.attempts, c.chart`,
+		now, now.Add(lease)).Scan(&j.id, &j.telegramID, &j.task, &j.prompt, &j.essay, &j.lang, &j.words, &j.attempts, &j.chart)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
@@ -107,7 +108,14 @@ func (q *Queue) Step(ctx context.Context) (bool, error) {
 	}
 
 	req := ai.WritingRequest{Task: j.task, Prompt: j.prompt, Essay: j.essay, Words: j.words, Lang: j.lang}
-	if j.task == Task1 {
+	// Task 1 из банка — график данными: AI получает числа текстом (DECISIONS 2026-11-27); иначе — фото задания.
+	chart, err := ParseChart(j.chart)
+	if err != nil {
+		return true, q.fail(ctx, j, err.Error())
+	}
+	if chart != nil {
+		req.Prompt = strings.TrimSpace(req.Prompt + "\n\nThe visual (exact data):\n" + chart.Text())
+	} else if j.task == Task1 {
 		var img ai.Image
 		err := q.Store.pool.QueryRow(ctx, `SELECT mime, data FROM writing_images WHERE check_id = $1`, j.id).Scan(&img.MIME, &img.Data)
 		if err != nil {
